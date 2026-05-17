@@ -56,6 +56,26 @@ Run tests:
 npm test
 ```
 
+## Deploy To GitHub Pages
+
+This app is configured for static export, so it can run on GitHub Pages without a server.
+
+One-time GitHub setup:
+
+1. Push this repository to GitHub.
+2. Open the repository in GitHub.
+3. Go to `Settings` -> `Pages`.
+4. Under `Build and deployment`, set `Source` to `GitHub Actions`.
+5. Push to the `main` branch or run the `Deploy to GitHub Pages` workflow manually.
+
+The default repo-site URL will be:
+
+```text
+https://<github-username>.github.io/REDDITBOT/
+```
+
+The workflow runs tests, lint, and a static build, then deploys the generated `out/` folder.
+
 ## Safety Principles
 
 - Mock data only until an approved public data source is connected.
