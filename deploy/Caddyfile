@@ -1,0 +1,16 @@
+{$APP_BASE_URL} {
+  encode zstd gzip
+
+  basicauth /* {
+    {$BASIC_AUTH_USER} {$BASIC_AUTH_PASSWORD_HASH}
+  }
+
+  header {
+    X-Frame-Options "DENY"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "same-origin"
+    Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  }
+
+  reverse_proxy app:3000
+}

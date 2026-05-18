@@ -2,6 +2,7 @@ import type {
   ClassificationResult,
   ComplianceResult,
   MockPost,
+  ResourceStatus,
   ReviewPost,
   RiskLevel
 } from "./types";
@@ -42,6 +43,21 @@ const medicalRedFlags = [
   "self-harm"
 ];
 
+const buyingSignalKeywords = [
+  "any recommendations",
+  "what do you use",
+  "i'm looking for",
+  "i am looking for",
+  "looking for",
+  "is there a better way",
+  "i would pay for",
+  "i need something that",
+  "has anyone tried",
+  "any setup checklist",
+  "what should i buy",
+  "i would love a checklist"
+];
+
 const firstReplyBlockedPatterns = [
   "product rec",
   "links",
@@ -58,9 +74,14 @@ const riskyDraftPatterns = [
   "fix",
   "guaranteed",
   "clinically proven",
+  "prevent",
+  "diagnose",
   "dm me for the product",
+  "dm me",
+  "message me",
   "use my link",
   "this solved my numbness",
+  "this fixed my burnout",
   "affiliate link",
   "discount code"
 ];
@@ -93,6 +114,7 @@ export function classifyPost(post: MockPost): ClassificationResult {
   const text = `${post.title} ${post.excerpt} ${post.body}`;
   const opportunityMatches = findMatches(text, opportunityKeywords);
   const redFlags = findMatches(text, medicalRedFlags);
+  const buyingSignals = findMatches(text, buyingSignalKeywords);
   const productSeekingMatches = findMatches(text, firstReplyBlockedPatterns);
   const isLowQuality =
     /meme|rant|lol|not looking for help|drop your worst/i.test(text);
@@ -122,6 +144,9 @@ export function classifyPost(post: MockPost): ClassificationResult {
   const relevance = isLowQuality
     ? 2
     : clampScore(opportunityMatches.length * 2 + subredditBonus + (post.matchedKeyword ? 1 : 0));
+  const buyingSignalScore = isLowQuality
+    ? 0
+    : clampScore(buyingSignals.length * 3 + (/buy|gear|app|chair|checklist|resource/i.test(text) ? 1 : 0));
   const helpfulness = isLowQuality
     ? 1
     : clampScore(relevance + (medicalRisk === "high" ? -4 : 1) + (promotionRisk === "high" ? -2 : 0));
@@ -152,9 +177,30 @@ export function classifyPost(post: MockPost): ClassificationResult {
         ? "Acknowledge discomfort, suggest low-risk setup and break checks, and encourage professional guidance if symptoms persist or worsen."
         : "Acknowledge the situation, offer a few free practical steps, and only offer a checklist if the poster asks for it.";
 
+  let intentCategory: ClassificationResult["intent_category"] = "asking_for_help";
+  if (medicalRisk === "high") {
+    intentCategory = "high_risk_medical_case";
+  } else if (isLowQuality && /meme|lol/i.test(text)) {
+    intentCategory = "joke_or_meme";
+  } else if (isLowQuality) {
+    intentCategory = "low_quality_rant";
+  } else if (/study|finals|exam|screen fatigue/i.test(text)) {
+    intentCategory = "study_fatigue";
+  } else if (/burnout|exhausted|mentally drained|no energy/i.test(text)) {
+    intentCategory = "burnout";
+  } else if (/wrist|numb|tingling|neck|back pain|desk|chair|mouse hand/i.test(text)) {
+    intentCategory = "desk_discomfort";
+  } else if (buyingSignals.length > 0 || /recommendations|looking for|what should i buy/i.test(text)) {
+    intentCategory = "looking_for_recommendations";
+  } else if (/current workflow|workflow|routine|system/i.test(text)) {
+    intentCategory = "complaining_about_workflow";
+  }
+
   return {
+    intent_category: intentCategory,
     relevance_score: relevance,
     helpfulness_opportunity: helpfulness,
+    buying_signal_score: buyingSignalScore,
     medical_risk: medicalRisk,
     promotion_risk: promotionRisk,
     should_reply: shouldReply,
@@ -163,6 +209,7 @@ export function classifyPost(post: MockPost): ClassificationResult {
     red_flags_detected: [
       ...redFlags,
       ...(isLowQuality ? ["low-quality meme or rant"] : []),
+      ...buyingSignals.map((match) => `buying signal: ${match}`),
       ...productSeekingMatches.map((match) => `promotion trigger: ${match}`)
     ],
     ai_summary: summarizePost(post)
@@ -212,7 +259,16 @@ export function checkCompliance(draft: string): ComplianceResult {
   );
   const hasLinks = /https?:\/\/|www\./i.test(draft);
   const asksForDm = /dm me|message me|send me a dm/i.test(draft);
-  const productLanguage = /buy|product|order|checkout|shipping|affiliate/i.test(draft);
+  const productLanguage = /buy|product|order|checkout|shipping|affiliate|discount/i.test(draft);
+  const hiddenAdvertising = /not sponsored|not affiliated|just a happy customer|our product|my product|we sell/i.test(draft);
+  const sentences = draft
+    .toLowerCase()
+    .split(/[.!?]\s+/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 20);
+  const hasRepeatedSentence = sentences.some(
+    (sentence, index) => sentences.indexOf(sentence) !== index
+  );
   const issues: string[] = [];
   const requiredEdits: string[] = [];
 
@@ -236,8 +292,28 @@ export function checkCompliance(draft: string): ComplianceResult {
     requiredEdits.push("Keep first reply educational and non-promotional.");
   }
 
+  if (hiddenAdvertising) {
+    issues.push("Draft may hide commercial intent or sound like undisclosed advertising.");
+    requiredEdits.push("Remove hidden-advertising language and make any commercial context explicit after review.");
+  }
+
+  if (hasRepeatedSentence) {
+    issues.push("Draft repeats the same sentence and may sound automated.");
+    requiredEdits.push("Remove repetitive or bot-like wording.");
+  }
+
   const healthClaimRisk: RiskLevel = matchedRiskyPatterns.some((pattern) =>
-    ["cure", "treat", "heal", "fix", "clinically proven", "this solved my numbness"].includes(pattern)
+    [
+      "cure",
+      "treat",
+      "heal",
+      "fix",
+      "clinically proven",
+      "prevent",
+      "diagnose",
+      "this solved my numbness",
+      "this fixed my burnout"
+    ].includes(pattern)
   )
     ? "high"
     : lowerDraft.includes("symptoms")
@@ -245,31 +321,65 @@ export function checkCompliance(draft: string): ComplianceResult {
       : "low";
 
   const spamRisk = hasLinks || asksForDm ? "high" : productLanguage ? "medium" : "low";
-  const pass = issues.length === 0 && spamRisk !== "high" && healthClaimRisk !== "high";
+  const promotionRisk: RiskLevel = productLanguage || matchedRiskyPatterns.some((pattern) =>
+    ["use my link", "affiliate link", "discount code"].includes(pattern)
+  )
+    ? "high"
+    : lowerDraft.includes("checklist/resource")
+      ? "low"
+      : "low";
+  const hiddenAdvertisingRisk: RiskLevel = hiddenAdvertising ? "high" : "low";
+  const repetitiveWordingRisk: RiskLevel = hasRepeatedSentence ? "medium" : "low";
+  const pass =
+    issues.length === 0 &&
+    spamRisk !== "high" &&
+    promotionRisk !== "high" &&
+    healthClaimRisk !== "high" &&
+    hiddenAdvertisingRisk !== "high";
 
   return {
     pass,
     spam_risk: spamRisk,
+    promotion_risk: promotionRisk,
     health_claim_risk: healthClaimRisk,
-    disclosure_needed: productLanguage || lowerDraft.includes("resource"),
+    hidden_advertising_risk: hiddenAdvertisingRisk,
+    repetitive_wording_risk: repetitiveWordingRisk,
+    disclosure_needed: productLanguage || hiddenAdvertising,
     issues,
     required_edits: requiredEdits
   };
 }
 
-export function createInitialReviewPosts(): ReviewPost[] {
-  return mockPosts.map((post) => {
-    const classification = classifyPost(post);
-    const draftReply = generateDraftReply(post, classification);
+function inferResourceStatus(post: MockPost, classification: ClassificationResult): ResourceStatus {
+  if (/checklist|resource|setup checklist|love a checklist/i.test(post.body)) {
+    return "user_requested_resource";
+  }
 
-    return {
-      ...post,
-      status: classification.should_reply === "yes" ? "drafted" : "new",
-      draftReply,
-      classification,
-      compliance: checkCompliance(draftReply)
-    };
-  });
+  if (classification.should_reply === "yes") {
+    return "resource_offered";
+  }
+
+  return "not_relevant";
+}
+
+export function createReviewPostFromPost(post: MockPost, importBatchId?: string): ReviewPost {
+  const classification = classifyPost(post);
+  const draftReply = generateDraftReply(post, classification);
+
+  return {
+    ...post,
+    status: classification.should_reply === "yes" ? "drafted" : "new",
+    resourceStatus: inferResourceStatus(post, classification),
+    draftReply,
+    classification,
+    compliance: checkCompliance(draftReply),
+    importBatchId,
+    auditEvents: []
+  };
+}
+
+export function createInitialReviewPosts(): ReviewPost[] {
+  return mockPosts.map((post) => createReviewPostFromPost(post));
 }
 
 export function getOverallRisk(post: ReviewPost): RiskLevel {

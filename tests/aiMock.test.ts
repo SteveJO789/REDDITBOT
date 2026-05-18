@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { checkCompliance, classifyPost, generateDraftReply } from "../src/lib/aiMock";
+import {
+  checkCompliance,
+  classifyPost,
+  createReviewPostFromPost,
+  generateDraftReply
+} from "../src/lib/aiMock";
+import { validateManualImportRows, validateManualImportText } from "../src/lib/importValidation";
+import { applyReviewAction, canApprove } from "../src/lib/reviewWorkflow";
 import type { MockPost } from "../src/lib/types";
 
 const basePost: MockPost = {
@@ -17,6 +24,8 @@ describe("mock AI classification", () => {
     const result = classifyPost(basePost);
 
     expect(result.relevance_score).toBeGreaterThanOrEqual(5);
+    expect(result.buying_signal_score).toBeGreaterThanOrEqual(0);
+    expect(result.intent_category).toBe("burnout");
     expect(result.medical_risk).toBe("low");
     expect(result.promotion_risk).toBe("low");
     expect(result.should_reply).toBe("yes");
@@ -55,7 +64,90 @@ describe("mock draft generation and compliance", () => {
 
     expect(compliance.pass).toBe(false);
     expect(compliance.spam_risk).toBe("medium");
+    expect(compliance.promotion_risk).toBe("high");
     expect(compliance.health_claim_risk).toBe("high");
     expect(compliance.required_edits.length).toBeGreaterThan(0);
+  });
+
+  it("fails hidden advertising and direct-message language", () => {
+    const compliance = checkCompliance(
+      "Not sponsored, just a happy customer. DM me and I will send you the product."
+    );
+
+    expect(compliance.pass).toBe(false);
+    expect(compliance.spam_risk).toBe("high");
+    expect(compliance.hidden_advertising_risk).toBe("high");
+  });
+});
+
+describe("manual import validation", () => {
+  it("accepts public JSON examples with required fields", () => {
+    const result = validateManualImportText(
+      JSON.stringify([
+        {
+          id: "manual-001",
+          subreddit: "r/WFH",
+          title: "Any setup checklist for laptop neck pain?",
+          body: "I am looking for practical setup ideas before buying equipment."
+        }
+      ]),
+      { format: "json", existingIds: [] }
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.posts[0].matchedKeyword).toBe("manual import");
+    }
+  });
+
+  it("rejects duplicate ids", () => {
+    const result = validateManualImportRows(
+      [
+        {
+          id: "existing",
+          title: "Private customer",
+          body: "Email me at person@example.com with the shipping address."
+        }
+      ],
+      { existingIds: ["existing"] }
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.join(" ")).toMatch(/duplicate id/i);
+    }
+  });
+
+  it("rejects private data in manual imports", () => {
+    const result = validateManualImportRows([
+      {
+        id: "private-001",
+        title: "Private customer",
+        body: "Email me at person@example.com with the shipping address."
+      }
+    ]);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors.join(" ")).toMatch(/private data/i);
+    }
+  });
+});
+
+describe("human review workflow", () => {
+  it("blocks approval for high-risk medical posts and records audit", () => {
+    const post = createReviewPostFromPost({
+      ...basePost,
+      id: "high-risk",
+      title: "Worsening numbness and weakness",
+      body: "My one-sided numbness is worsening and I have weakness."
+    });
+
+    expect(canApprove(post)).toBe(false);
+
+    const updated = applyReviewAction({ post, action: "approve", actor: "tester" });
+
+    expect(updated.status).toBe("needs_compliance_review");
+    expect(updated.auditEvents.at(-1)?.action).toBe("approve");
   });
 });

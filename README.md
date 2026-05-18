@@ -10,14 +10,16 @@ Operation Empathy Dashboard is an internal mock-data prototype for showing how A
 - Safe draft generation that avoids product links, affiliate links, discount codes, auto-DMs, and medical treatment claims.
 - A local compliance checker for spam risk, health claim risk, disclosure review, issues, and required edits.
 - Human review actions: approve, edit draft, reject, and mark Do Not Engage.
-- Simple analytics for subreddit mix, risk levels, review status, average relevance score, and resource request opportunities.
+- Human review escalation actions: Needs Compliance Review and Needs Marketing Review.
+- Manual CSV/JSON import validation for public/mock examples.
+- Simple analytics for subreddit mix, risk levels, buying signals, review status, pain points, and resource request opportunities.
 
 ## Intentionally Not Included Yet
 
 - No real Reddit API connection.
 - No real customer data.
 - No connection to the company website, order system, payment system, shipping system, CRM, or production APIs.
-- No database.
+- No database-backed app persistence yet; PostgreSQL schema and Docker service are included for the VPS persistence milestone.
 - No auto-posting.
 - No auto-DM.
 - No affiliate links or product recommendations in first public replies.
@@ -56,6 +58,33 @@ Run tests:
 npm test
 ```
 
+## Run On An Internal VPS
+
+The default build now runs as a normal Next.js server for Docker/VPS hosting. GitHub Pages static export is still available only when `GITHUB_PAGES=true`.
+
+Required files:
+
+- `.env.example` for required staging environment variables.
+- `Dockerfile` for the Next.js app container.
+- `docker-compose.yml` for app, PostgreSQL, and Caddy.
+- `deploy/Caddyfile` for HTTPS reverse proxy and basic auth.
+- `deploy/postgres/schema.sql` for the planned persistent review workflow.
+- `docs/VPS_DEPLOYMENT.md` for setup and acceptance checks.
+
+Start the VPS stack after creating `.env`:
+
+```bash
+docker compose up -d --build
+```
+
+Keep these flags false for v1:
+
+```env
+OUTREACH_WRITE_ENABLED=false
+REDDIT_READ_ONLY_ENABLED=false
+LLM_ENABLED=false
+```
+
 ## Deploy To GitHub Pages
 
 This app is configured for static export, so it can run on GitHub Pages without a server.
@@ -85,14 +114,25 @@ The workflow runs tests, lint, and a static build, then deploys the generated `o
 - High medical risk posts should be treated safety-first and can be marked Do Not Engage.
 - The prototype should never post, DM, collect private customer data, or write to production systems.
 
-## Future Integration Plan
+## Safe Execution Plan
 
-1. Phase 1: Mock data dashboard.
-2. Phase 2: Connect approved public data source or Reddit API safely.
-3. Phase 3: Add real AI classification and draft generation.
-4. Phase 4: Add human approval workflow.
-5. Phase 5: Add analytics and resource request tracking.
-6. Phase 6: Integrate with the company website or CRM only after approval.
+The working direction is an internal decision-support dashboard, not an automated Reddit sales bot.
+
+1. Phase 1: Build and demo the mock-data dashboard.
+2. Phase 2: Strengthen local classification, compliance checking, draft generation, and review status tracking.
+3. Phase 3: Add real AI classification and draft generation only after local safety tests are stable.
+4. Phase 4: Improve the human review workflow with explicit approve, edit, reject, Do Not Engage, and compliance review actions.
+5. Phase 5: Add learning-focused analytics for pain points, risk levels, approval quality, objections, and resource-request opportunities.
+6. Phase 6: Consider read-only public data research only after policy review and explicit approval.
+7. Phase 7: Consider company website or CRM integration only after a separate production safety review.
+
+Out of scope unless explicitly approved later:
+
+- Account farming, aged-account management, karma farming, or account rotation.
+- Auto-posting, auto-commenting, auto-DM, or browser automation for outreach.
+- First-reply affiliate links, discount codes, product links, or hidden commercial intent.
+- Real Reddit API access during the prototype stage.
+- Production customer data, payment systems, shipping systems, or ordering systems.
 
 ## Project Structure
 
@@ -100,6 +140,6 @@ The workflow runs tests, lint, and a static build, then deploys the generated `o
 src/app/          Next.js app routes and dashboard UI
 src/lib/          Mock data, classification, draft, compliance, and analytics logic
 tests/            Unit tests for local mock AI safety logic
-assets/           Future static or generated assets
-docs/             Future contributor-facing documentation
+deploy/           VPS reverse proxy and PostgreSQL schema
+docs/             Deployment and operational documentation
 ```

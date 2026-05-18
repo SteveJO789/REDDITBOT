@@ -101,6 +101,17 @@ export const mockPosts: MockPost[] = [
     createdAt: "2026-05-06"
   },
   {
+    id: "post-015",
+    subreddit: "r/Ergonomics",
+    title: "Neck pain from laptop setup, is there a better way?",
+    excerpt:
+      "My neck pain gets worse on laptop-only days. I need something that works before I spend money on equipment.",
+    body:
+      "My neck pain gets worse on laptop-only days. Is there a better way to set up a laptop at a small desk? I need something that works before I spend money on equipment.",
+    matchedKeyword: "neck pain",
+    createdAt: "2026-05-06"
+  },
+  {
     id: "post-010",
     subreddit: "r/productivity",
     title: "Low effort rant: hustle culture is fake lol",
