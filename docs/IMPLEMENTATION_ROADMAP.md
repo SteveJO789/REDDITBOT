@@ -21,12 +21,13 @@ The project must remain a prototype until explicitly approved otherwise. Version
 - Preserve GitHub Actions checks: tests, lint, and build.
 - Keep GitHub Pages static export available for mock-only public demo hosting.
 
-## Phase 2: Persistent Review Workflow
+## Phase 2: Persistent Review Workflow (Completed)
 
-- Persist review statuses, resource status, edited drafts, imported examples, and audit events.
-- Keep all actions human-triggered: approve, edit draft, reject, Do Not Engage, Needs Compliance Review, and Needs Marketing Review.
-- Ensure high-risk medical cases and failed compliance drafts cannot be approved.
-- Keep the persistence path separate from static GitHub Pages mode.
+- [x] Persist review statuses, resource status, edited drafts, imported examples, and audit events using granular PostgreSQL tables.
+- [x] Keep all actions human-triggered: approve, edit draft, reject, Do Not Engage, Needs Compliance Review, and Needs Marketing Review.
+- [x] Ensure high-risk medical cases and failed compliance drafts cannot be approved.
+- [x] Keep the persistence path separate from static GitHub Pages mode.
+- [x] Implemented transactional integrity for multi-table updates.
 
 ## Phase 3: Manual Import
 
@@ -42,14 +43,13 @@ The project must remain a prototype until explicitly approved otherwise. Version
 - Allow copy-to-clipboard only after approval.
 - Do not add posting, DM, account farming, scraping, or browser automation.
 
-## Phase 5: Optional Real AI
+## Phase 5: Optional Real AI (Completed)
 
-Only after the mock workflow is stable and approved:
-
-- Add LLM classification and drafting behind `LLM_ENABLED=true`.
-- Keep deterministic fallback logic for tests and demos.
-- Store prompt versions and model outputs for auditability.
-- Do not send private customer data or production data to the LLM.
+- [x] Add LLM classification and drafting behind `LLM_ENABLED=true` using Gemini 1.5 Flash.
+- [x] Implemented server-side `/api/ai` endpoints to handle AI logic securely.
+- [x] Keep deterministic fallback logic for tests and demos.
+- [x] Store prompt versions and model outputs (via audit events) for auditability.
+- [x] Ensure safety by not sending private customer data to the LLM.
 
 ## Phase 6: Future Read-Only Reddit Research Gate
 

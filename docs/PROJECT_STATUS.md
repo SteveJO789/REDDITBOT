@@ -1,6 +1,6 @@
 # Project Status
 
-Last updated: 2026-05-20
+Last updated: 2026-05-21
 
 ## Current Deployment
 
@@ -8,11 +8,8 @@ Last updated: 2026-05-20
 - Origin URL on VPS: `http://127.0.0.1:8080`
 - Runtime: Docker Compose
 - Services: `app`, `postgres`
-- Removed from active stack: `caddy`
-- HTTPS: terminated by Cloudflare
-- Origin traffic: Cloudflare forwards to HTTP port `8080`
-- App container mapping: `0.0.0.0:8080 -> 3000`
-- Persistence: PostgreSQL
+- Persistence: Granular PostgreSQL (Structured tables + Legacy JSON blob sync)
+- AI Engine: Gemini 1.5 Flash (via `@google/generative-ai`)
 
 ## Verified
 
@@ -20,7 +17,13 @@ Last updated: 2026-05-20
 - Next.js production build passes during Docker build.
 - App health check is healthy.
 - PostgreSQL container is healthy.
-- Local origin health check returns `200`:
+- Persistence: Migrated to granular tables (`posts`, `classifications`, `review_states`, `audit_events`).
+- AI Integration: Real AI endpoints `/api/ai/classify` and `/api/ai/draft` implemented and guarded by `LLM_ENABLED`.
+- UI: Added AI-assisted classification and drafting buttons in the review console.
+...
+- Backward compatibility: Reconstructs state from granular tables; falls back to legacy `dashboard_state_snapshots` if empty.
+- Multi-table transactions implemented for state saving.
+...
 
 ```text
 http://127.0.0.1:8080/api/health

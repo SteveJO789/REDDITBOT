@@ -760,6 +760,24 @@ export default function Home() {
               </section>
 
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {llmEnabled ? (
+                  <>
+                    <button
+                      className="min-h-11 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+                      onClick={reclassifyWithAI}
+                      disabled={isAiProcessing}
+                    >
+                      {isAiProcessing ? "Processing..." : "Run Real AI Classification"}
+                    </button>
+                    <button
+                      className="min-h-11 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
+                      onClick={regenerateDraftWithAI}
+                      disabled={isAiProcessing}
+                    >
+                      {isAiProcessing ? "Processing..." : "Regenerate Draft with AI"}
+                    </button>
+                  </>
+                ) : null}
                 <button
                   className="min-h-11 rounded-md bg-signal px-3 py-2 text-sm font-bold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                   disabled={approvalBlockers.length > 0}
@@ -826,6 +844,31 @@ export default function Home() {
 
         <section className="mt-5">
           <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-bold uppercase text-ink">Analytics</h2>
+            </div>
+            <div className="rounded border border-line bg-white px-3 py-2 text-xs text-steel shadow-tight">
+              Avg relevance{" "}
+              <span className="font-semibold text-ink">{analytics.averageRelevance.toFixed(1)}/10</span>
+              {" "} / Resource requests{" "}
+              <span className="font-semibold text-ink">
+                {analytics.resourceRequestOpportunityCount}
+              </span>
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <ChartRows title="Posts by subreddit" rows={subredditRows} />
+            <ChartRows title="Posts by risk level" rows={riskRows} tone="rose" />
+            <ChartRows title="Review status count" rows={statusRows} tone="green" />
+            <ChartRows title="Top pain points" rows={painPointRows} />
+            <ChartRows title="Top risk signals" rows={objectionRows} tone="rose" />
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+}
+justify-between">
             <div>
               <h2 className="text-sm font-bold uppercase text-ink">Analytics</h2>
             </div>

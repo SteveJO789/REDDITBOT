@@ -129,8 +129,39 @@ createServer(async (req, res) => {
     sendJson(res, 200, {
       ok: true,
       storage: store.kind,
-      outreachWriteEnabled: process.env.OUTREACH_WRITE_ENABLED === "true"
+      outreachWriteEnabled: process.env.OUTREACH_WRITE_ENABLED === "true",
+      llmEnabled: process.env.LLM_ENABLED === "true"
     });
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/ai/classify" && req.method === "POST") {
+    if (process.env.LLM_ENABLED !== "true") {
+      sendJson(res, 400, { ok: false, error: "LLM is not enabled." });
+      return;
+    }
+    try {
+      const body = await readJsonBody(req);
+      const result = await classifyPostWithAI(body.post);
+      sendJson(res, 200, { ok: true, classification: result });
+    } catch (error) {
+      sendJson(res, 500, { ok: false, error: error.message });
+    }
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/ai/draft" && req.method === "POST") {
+    if (process.env.LLM_ENABLED !== "true") {
+      sendJson(res, 400, { ok: false, error: "LLM is not enabled." });
+      return;
+    }
+    try {
+      const body = await readJsonBody(req);
+      const result = await generateDraftWithAI(body.post, body.classification);
+      sendJson(res, 200, { ok: true, draft: result });
+    } catch (error) {
+      sendJson(res, 500, { ok: false, error: error.message });
+    }
     return;
   }
 
