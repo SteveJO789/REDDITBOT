@@ -12,6 +12,7 @@ Operation Empathy Dashboard is an internal mock-data prototype for showing how A
 - Human review actions: approve, edit draft, reject, and mark Do Not Engage.
 - Human review escalation actions: Needs Compliance Review and Needs Marketing Review.
 - Manual CSV/JSON import validation for public/mock examples.
+- Server-side review-state persistence for VPS/internal server mode.
 - Simple analytics for subreddit mix, risk levels, buying signals, review status, pain points, and resource request opportunities.
 
 ## Intentionally Not Included Yet
@@ -19,7 +20,7 @@ Operation Empathy Dashboard is an internal mock-data prototype for showing how A
 - No real Reddit API connection.
 - No real customer data.
 - No connection to the company website, order system, payment system, shipping system, CRM, or production APIs.
-- No database-backed app persistence yet; PostgreSQL schema and Docker service are included for the VPS persistence milestone.
+- GitHub Pages remains browser-local only; VPS/server mode persists review state through the internal API.
 - No auto-posting.
 - No auto-DM.
 - No affiliate links or product recommendations in first public replies.
@@ -44,6 +45,13 @@ Then open the local URL printed by Next.js, usually:
 
 ```text
 http://localhost:3000
+```
+
+Development mode uses browser local state unless the custom server is running. To test the persistence API locally after a build:
+
+```bash
+npm run build
+npm run start
 ```
 
 Build check:
@@ -76,6 +84,14 @@ Start the VPS stack after creating `.env`:
 ```bash
 docker compose up -d --build
 ```
+
+In VPS mode, `npm run start` runs `server/review-server.mjs`. The server exposes:
+
+- `GET /api/health` for a basic runtime and persistence check.
+- `GET /api/review-state` to load the saved dashboard state.
+- `PUT /api/review-state` to save review statuses, edited drafts, imported examples, resource status, and audit events.
+
+The persistence path uses PostgreSQL when `DATABASE_URL` is available. If PostgreSQL is unavailable, the server falls back to `.data/review-state.json`; the Docker stack mounts this path as a named volume so state survives container rebuilds.
 
 Keep these flags false for v1:
 

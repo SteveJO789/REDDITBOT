@@ -37,12 +37,14 @@ docker compose up -d --build
 
 ## Manual Acceptance Checks
 
+- `https://your-domain.example/api/health` returns `"ok":true` and reports `postgres` storage when `DATABASE_URL` is reachable.
 - The site requires VPN access or basic auth before the dashboard is visible.
 - Manual CSV/JSON import accepts only public/mock examples.
 - High medical risk posts cannot be approved.
 - Drafts with links, DM requests, medical claims, discount codes, or affiliate language fail compliance.
+- A changed review status survives a browser refresh through server persistence.
 - Approved drafts can be copied, but the app has no posting or DM integration.
-- Audit entries are recorded for review actions in the UI. PostgreSQL schema is ready for backend persistence work.
+- Audit entries are recorded for review actions in the UI and are included in persisted dashboard state.
 
 ## Safety Boundary
 

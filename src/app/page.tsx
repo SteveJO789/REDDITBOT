@@ -2,24 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  checkCompliance,
   createInitialReviewPosts,
   createReviewPostFromPost,
   getOverallRisk
 } from "@/lib/aiMock";
 import { getAnalytics } from "@/lib/analytics";
 import { validateManualImportText } from "@/lib/importValidation";
+import {
+  DASHBOARD_STORAGE_KEY,
+  createSavedDashboardState,
+  hydrateSavedPosts,
+  parseSavedDashboardState
+} from "@/lib/persistenceState";
 import { applyReviewAction, getApprovalBlockers } from "@/lib/reviewWorkflow";
-import type {
-  AuditEvent,
-  MockPost,
-  ResourceStatus,
-  ReviewPost,
-  ReviewStatus,
-  RiskLevel
-} from "@/lib/types";
+import type { ResourceStatus, ReviewPost, ReviewStatus, RiskLevel } from "@/lib/types";
 
-const STORAGE_KEY = "operation-empathy-dashboard-v1";
 const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
 
 const statusLabels: Record<ReviewStatus, string> = {
@@ -142,61 +139,11 @@ function ChartRows({
   );
 }
 
-type SavedPostOverride = {
-  id: string;
-  status: ReviewStatus;
-  draftReply: string;
-  resourceStatus?: ResourceStatus;
-  auditEvents?: AuditEvent[];
-};
-
-type SavedDashboardState =
-  | SavedPostOverride[]
-  | {
-      overrides: SavedPostOverride[];
-      importedPosts?: MockPost[];
-    };
-
-function applySavedOverrides(posts: ReviewPost[], overrides: SavedPostOverride[]) {
-  const savedById = new Map(overrides.map((post) => [post.id, post]));
-
-  return posts.map((post) => {
-    const savedPost = savedById.get(post.id);
-    if (!savedPost) {
-      return post;
-    }
-
-    return {
-      ...post,
-      status: savedPost.status,
-      resourceStatus: savedPost.resourceStatus ?? post.resourceStatus,
-      draftReply: savedPost.draftReply,
-      compliance: checkCompliance(savedPost.draftReply),
-      auditEvents: savedPost.auditEvents ?? post.auditEvents
-    };
-  });
-}
-
-function loadSavedPosts() {
-  const initial = createInitialReviewPosts();
-
+function loadLocalSavedPosts() {
   try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) {
-      return initial;
-    }
-
-    const savedState = JSON.parse(saved) as SavedDashboardState;
-    const importedPosts = Array.isArray(savedState)
-      ? []
-      : (savedState.importedPosts ?? []).map((post) =>
-          createReviewPostFromPost(post, post.id.startsWith("manual-") ? post.id : "local-import")
-        );
-    const overrides = Array.isArray(savedState) ? savedState : savedState.overrides;
-
-    return applySavedOverrides([...initial, ...importedPosts], overrides);
+    return hydrateSavedPosts(parseSavedDashboardState(window.localStorage.getItem(DASHBOARD_STORAGE_KEY)));
   } catch {
-    return initial;
+    return createInitialReviewPosts();
   }
 }
 
@@ -210,22 +157,43 @@ export default function Home() {
   const [isEditing, setIsEditing] = useState(false);
   const [importMessage, setImportMessage] = useState("");
   const [hasLoadedSavedState, setHasLoadedSavedState] = useState(false);
+  const [persistenceMode, setPersistenceMode] = useState<"loading" | "server" | "local">("loading");
 
   useEffect(() => {
     let isCancelled = false;
 
-    queueMicrotask(() => {
+    async function loadSavedState() {
+      let savedPosts = loadLocalSavedPosts();
+      let nextPersistenceMode: "server" | "local" = "local";
+
+      try {
+        const response = await fetch("/api/review-state", { cache: "no-store" });
+        if (response.ok) {
+          const payload = (await response.json()) as {
+            state?: Parameters<typeof hydrateSavedPosts>[0];
+          };
+          if (payload.state) {
+            savedPosts = hydrateSavedPosts(payload.state);
+          }
+          nextPersistenceMode = "server";
+        }
+      } catch {
+        nextPersistenceMode = "local";
+      }
+
       if (isCancelled) {
         return;
       }
 
-      const savedPosts = loadSavedPosts();
       setPosts(savedPosts);
       setSelectedId((currentId) =>
         savedPosts.some((post) => post.id === currentId) ? currentId : (savedPosts[0]?.id ?? "")
       );
+      setPersistenceMode(nextPersistenceMode);
       setHasLoadedSavedState(true);
-    });
+    }
+
+    void loadSavedState();
 
     return () => {
       isCancelled = true;
@@ -237,29 +205,25 @@ export default function Home() {
       return;
     }
 
-    const initialIds = new Set(createInitialReviewPosts().map((post) => post.id));
-    const savedPayload = {
-      overrides: posts.map((post) => ({
-        id: post.id,
-        status: post.status,
-        resourceStatus: post.resourceStatus,
-        draftReply: post.draftReply,
-        auditEvents: post.auditEvents
-      })),
-      importedPosts: posts
-        .filter((post) => !initialIds.has(post.id))
-        .map((post) => ({
-          id: post.id,
-          subreddit: post.subreddit,
-          title: post.title,
-          excerpt: post.excerpt,
-          body: post.body,
-          matchedKeyword: post.matchedKeyword,
-          createdAt: post.createdAt
-      }))
-    };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(savedPayload));
-  }, [hasLoadedSavedState, posts]);
+    const savedPayload = createSavedDashboardState(posts);
+    window.localStorage.setItem(DASHBOARD_STORAGE_KEY, JSON.stringify(savedPayload));
+
+    if (persistenceMode !== "server") {
+      return;
+    }
+
+    const saveTimer = window.setTimeout(() => {
+      void fetch("/api/review-state", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: savedPayload })
+      }).catch(() => {
+        setPersistenceMode("local");
+      });
+    }, 350);
+
+    return () => window.clearTimeout(saveTimer);
+  }, [hasLoadedSavedState, persistenceMode, posts]);
 
   const subreddits = useMemo(
     () => Array.from(new Set(posts.map((post) => post.subreddit))).sort(),
@@ -396,6 +360,9 @@ export default function Home() {
             </span>
             <span className="rounded border border-rose-300/40 bg-rose-300/10 px-2.5 py-1 text-rose-100">
               No posting / DM
+            </span>
+            <span className="rounded border border-cyan-300/40 bg-cyan-300/10 px-2.5 py-1 text-cyan-100">
+              {persistenceMode === "server" ? "Server persistence" : "Browser local state"}
             </span>
           </div>
         </div>

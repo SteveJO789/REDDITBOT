@@ -6,6 +6,7 @@ import {
   generateDraftReply
 } from "../src/lib/aiMock";
 import { validateManualImportRows, validateManualImportText } from "../src/lib/importValidation";
+import { createSavedDashboardState, hydrateSavedPosts } from "../src/lib/persistenceState";
 import { applyReviewAction, canApprove } from "../src/lib/reviewWorkflow";
 import type { MockPost } from "../src/lib/types";
 
@@ -149,5 +150,33 @@ describe("human review workflow", () => {
 
     expect(updated.status).toBe("needs_compliance_review");
     expect(updated.auditEvents.at(-1)?.action).toBe("approve");
+  });
+});
+
+describe("dashboard persistence state", () => {
+  it("hydrates saved status, draft edits, audit events, and imported posts", () => {
+    const editedPost = applyReviewAction({
+      post: createReviewPostFromPost(basePost),
+      action: "edit_draft",
+      actor: "tester",
+      draftReply: "This clinically proven product will cure wrist pain. Use my link."
+    });
+    const importedPost: MockPost = {
+      ...basePost,
+      id: "manual-101",
+      title: "Any setup checklist?",
+      body: "Any setup checklist for a small desk?",
+      matchedKeyword: "manual import"
+    };
+    const importedReviewPost = createReviewPostFromPost(importedPost, "manual-batch");
+    const savedState = createSavedDashboardState([editedPost, importedReviewPost]);
+    const hydrated = hydrateSavedPosts(savedState);
+    const hydratedEditedPost = hydrated.find((post) => post.id === basePost.id);
+    const hydratedImportedPost = hydrated.find((post) => post.id === "manual-101");
+
+    expect(hydratedEditedPost?.status).toBe("drafted");
+    expect(hydratedEditedPost?.compliance.pass).toBe(false);
+    expect(hydratedEditedPost?.auditEvents.at(-1)?.actor).toBe("tester");
+    expect(hydratedImportedPost?.importBatchId).toBe("manual-101");
   });
 });

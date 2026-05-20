@@ -12,6 +12,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - review-state-data:/app/.data
     restart: unless-stopped
     networks:
       - internal
@@ -50,6 +52,7 @@ services:
       - internal
 
 volumes:
+  review-state-data:
   postgres-data:
   caddy-data:
   caddy-config:

@@ -97,5 +97,12 @@ CREATE TABLE IF NOT EXISTS audit_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS dashboard_state_snapshots (
+  key TEXT PRIMARY KEY,
+  payload JSONB NOT NULL,
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_posts_import_batch_id ON posts(import_batch_id);
 CREATE INDEX IF NOT EXISTS idx_audit_events_post_id ON audit_events(post_id);
