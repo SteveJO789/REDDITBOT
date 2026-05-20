@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 
 const composeArgs = ["compose"];
+const verifyStateKey = "operation-empathy-dashboard-verify";
 const testState = {
   state: {
     overrides: [
@@ -31,6 +32,7 @@ function run(command, args, options = {}) {
   return execFileSync(command, args, {
     encoding: "utf8",
     stdio: options.stdio ?? ["ignore", "pipe", "pipe"],
+    env: { ...process.env, DASHBOARD_STATE_KEY: verifyStateKey },
     ...options
   });
 }
@@ -128,7 +130,7 @@ const queryOutput = runDocker([
   "-t",
   "-A",
   "-c",
-  "SELECT updated_by || '|' || jsonb_array_length(payload->'overrides') FROM dashboard_state_snapshots WHERE key = 'operation-empathy-dashboard-v1';"
+  `SELECT updated_by || '|' || jsonb_array_length(payload->'overrides') FROM dashboard_state_snapshots WHERE key = '${verifyStateKey}';`
 ]).trim();
 
 assert(

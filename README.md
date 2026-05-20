@@ -79,7 +79,13 @@ Required files:
 - `deploy/postgres/schema.sql` for the planned persistent review workflow.
 - `docs/VPS_DEPLOYMENT.md` for setup and acceptance checks.
 
-Start the VPS stack after creating `.env`:
+Generate `.env`, fill real secrets, then run the preflight check:
+
+```bash
+npm run validate:env
+```
+
+Start the VPS stack:
 
 ```bash
 docker compose up -d --build
@@ -91,13 +97,25 @@ Verify the app and PostgreSQL persistence path:
 npm run verify:docker
 ```
 
+Create an on-demand PostgreSQL backup:
+
+```bash
+npm run backup:db
+```
+
+Restore a backup only after confirming the target database:
+
+```bash
+npm run restore:db -- backups/operation_empathy-example.sql --yes
+```
+
 In VPS mode, `npm run start` runs `server/review-server.mjs`. The server exposes:
 
 - `GET /api/health` for a basic runtime and persistence check.
 - `GET /api/review-state` to load the saved dashboard state.
 - `PUT /api/review-state` to save review statuses, edited drafts, imported examples, resource status, and audit events.
 
-The persistence path uses PostgreSQL when `DATABASE_URL` is available. If PostgreSQL is unavailable, the server falls back to `.data/review-state.json`; the Docker stack mounts this path as a named volume so state survives container rebuilds.
+The persistence path uses PostgreSQL when `DATABASE_URL` is available. If PostgreSQL is unavailable, the server falls back to `.data/review-state.json` for local server tests. In Docker/VPS mode, `REQUIRE_POSTGRES=true` makes the app fail fast instead of silently falling back to file storage.
 
 Keep these flags false for v1:
 

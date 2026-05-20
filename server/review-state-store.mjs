@@ -49,6 +49,10 @@ async function createPostgresStore() {
       }
     };
   } catch (error) {
+    if (process.env.REQUIRE_POSTGRES === "true") {
+      throw new Error(`PostgreSQL persistence is required but unavailable: ${error.message}`);
+    }
+
     console.warn(
       `PostgreSQL persistence unavailable, falling back to file storage: ${error.message}`
     );

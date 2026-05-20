@@ -9,6 +9,9 @@
     "start:next": "next start",
     "lint": "eslint .",
     "test": "vitest run",
+    "validate:env": "node scripts/validate-vps-env.mjs",
+    "backup:db": "node scripts/backup-postgres.mjs",
+    "restore:db": "node scripts/restore-postgres.mjs",
     "verify:docker": "node scripts/verify-docker-persistence.mjs"
   },
   "dependencies": {

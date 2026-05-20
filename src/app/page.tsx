@@ -158,6 +158,7 @@ export default function Home() {
   const [importMessage, setImportMessage] = useState("");
   const [hasLoadedSavedState, setHasLoadedSavedState] = useState(false);
   const [persistenceMode, setPersistenceMode] = useState<"loading" | "server" | "local">("loading");
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     let isCancelled = false;
@@ -190,6 +191,7 @@ export default function Home() {
         savedPosts.some((post) => post.id === currentId) ? currentId : (savedPosts[0]?.id ?? "")
       );
       setPersistenceMode(nextPersistenceMode);
+      setSaveError("");
       setHasLoadedSavedState(true);
     }
 
@@ -217,9 +219,16 @@ export default function Home() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ state: savedPayload })
-      }).catch(() => {
-        setPersistenceMode("local");
-      });
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Server save failed.");
+          }
+          setSaveError("");
+        })
+        .catch(() => {
+          setSaveError("Server save failed. Changes are still in this browser and will retry after the next edit.");
+        });
     }, 350);
 
     return () => window.clearTimeout(saveTimer);
@@ -364,6 +373,11 @@ export default function Home() {
             <span className="rounded border border-cyan-300/40 bg-cyan-300/10 px-2.5 py-1 text-cyan-100">
               {persistenceMode === "server" ? "Server persistence" : "Browser local state"}
             </span>
+            {saveError ? (
+              <span className="rounded border border-red-300/40 bg-red-300/10 px-2.5 py-1 text-red-100">
+                Save needs retry
+              </span>
+            ) : null}
           </div>
         </div>
       </header>
@@ -399,6 +413,7 @@ export default function Home() {
             </label>
           </div>
           {importMessage ? <p className="mt-2 text-xs font-medium text-steel" aria-live="polite">{importMessage}</p> : null}
+          {saveError ? <p className="mt-2 text-xs font-bold text-danger" aria-live="polite">{saveError}</p> : null}
         </section>
 
         <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(400px,0.92fr)]">

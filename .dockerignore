@@ -3,6 +3,7 @@
 .next
 node_modules
 out
+backups
 npm-debug.log
 next-dev*.log
 next-dev.pid
