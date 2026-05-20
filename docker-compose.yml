@@ -2,6 +2,8 @@ services:
   app:
     build:
       context: .
+    ports:
+      - "8080:3000"
     env_file:
       - .env
     environment:
@@ -47,28 +49,9 @@ services:
     networks:
       - internal
 
-  caddy:
-    image: caddy:2-alpine
-    env_file:
-      - .env
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
-    depends_on:
-      - app
-    restart: unless-stopped
-    networks:
-      - internal
-
 volumes:
   review-state-data:
   postgres-data:
-  caddy-data:
-  caddy-config:
 
 networks:
   internal:

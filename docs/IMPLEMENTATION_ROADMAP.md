@@ -8,7 +8,7 @@ The project must remain a prototype until explicitly approved otherwise. Version
 
 ## Current Direction
 
-- Hosting: internal VPS with Docker Compose, Caddy, HTTPS, and basic auth or VPN access.
+- Hosting: internal VPS with Docker Compose. Cloudflare terminates public HTTPS and forwards to the app on origin HTTP port `8080`; protect access with Cloudflare Access, VPN, firewall allowlists, or equivalent controls.
 - App: Next.js, TypeScript, Tailwind CSS, and Vitest.
 - Data sources: mock seed data and manual public-example imports only.
 - Persistence: PostgreSQL in VPS mode, with a file fallback for local server tests.
@@ -17,7 +17,7 @@ The project must remain a prototype until explicitly approved otherwise. Version
 ## Phase 1: Production-Shaped Internal Demo
 
 - Keep the existing dashboard behavior working with mock data.
-- Maintain Docker, Compose, reverse proxy, and environment documentation.
+- Maintain Docker, Compose, Cloudflare origin, and environment documentation.
 - Preserve GitHub Actions checks: tests, lint, and build.
 - Keep GitHub Pages static export available for mock-only public demo hosting.
 

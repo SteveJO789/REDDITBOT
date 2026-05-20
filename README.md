@@ -74,8 +74,7 @@ Required files:
 
 - `.env.example` for required staging environment variables.
 - `Dockerfile` for the Next.js app container.
-- `docker-compose.yml` for app, PostgreSQL, and Caddy.
-- `deploy/Caddyfile` for HTTPS reverse proxy and basic auth.
+- `docker-compose.yml` for the app and PostgreSQL.
 - `deploy/postgres/schema.sql` for the planned persistent review workflow.
 - `docs/VPS_DEPLOYMENT.md` for setup and acceptance checks.
 
@@ -90,6 +89,14 @@ Start the VPS stack:
 ```bash
 docker compose up -d --build
 ```
+
+The VPS Compose stack publishes the Next.js server on origin HTTP port `8080`:
+
+```text
+Cloudflare HTTPS -> VPS origin http://<server-ip>:8080 -> Next.js app port 3000
+```
+
+Cloudflare handles public HTTPS for `APP_BASE_URL`. Keep the dashboard internal with Cloudflare Access, firewall allowlists, VPN, or an equivalent access-control layer.
 
 Verify the app and PostgreSQL persistence path:
 
@@ -180,6 +187,6 @@ Out of scope unless explicitly approved later:
 src/app/          Next.js app routes and dashboard UI
 src/lib/          Mock data, classification, draft, compliance, and analytics logic
 tests/            Unit tests for local mock AI safety logic
-deploy/           VPS reverse proxy and PostgreSQL schema
+deploy/           PostgreSQL schema and legacy reverse proxy config
 docs/             Deployment and operational documentation
 ```

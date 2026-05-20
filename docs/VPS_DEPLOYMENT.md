@@ -1,29 +1,23 @@
 # VPS Deployment
 
-This deployment shape is for an internal staging dashboard. It keeps the prototype behind HTTPS and basic auth, with PostgreSQL prepared for persistent review state.
+This deployment shape is for an internal staging dashboard. Cloudflare terminates public HTTPS and forwards traffic to the VPS origin on HTTP port `8080`. PostgreSQL persists review state.
 
 ## Minimum VPS
 
 - Ubuntu 24.04 LTS
 - 2 vCPU, 2-4 GB RAM, 40 GB SSD
 - Docker and Docker Compose
-- UFW allowing only `22`, `80`, and `443`
-- Tailscale or WireGuard for team access
+- UFW allowing `22` and origin port `8080` from trusted networks or Cloudflare IP ranges
+- Cloudflare Access, Tailscale, WireGuard, or another access-control layer for team access
 - Daily PostgreSQL backup to encrypted off-server storage
 
 ## Setup
 
 1. Copy `.env.example` to `.env` and replace every placeholder secret.
-2. Generate a Caddy bcrypt password hash:
-
-```bash
-docker run --rm caddy:2-alpine caddy hash-password --plaintext 'replace-this-password'
-```
-
-In `.env`, escape every `$` in the bcrypt hash as `$$` so Docker Compose does not treat it as variable interpolation.
-
-3. Set `APP_BASE_URL` to the HTTPS domain, for example `https://dashboard.example.com`.
-4. Keep these flags false for v1:
+2. Set `APP_BASE_URL` to the HTTPS domain, for example `https://dashboard.example.com`.
+3. Configure Cloudflare DNS for the staging domain to proxy traffic to the VPS origin.
+4. Configure Cloudflare to forward the origin request to port `8080`.
+5. Keep these flags false for v1:
 
 ```env
 OUTREACH_WRITE_ENABLED=false
@@ -31,16 +25,22 @@ REDDIT_READ_ONLY_ENABLED=false
 LLM_ENABLED=false
 ```
 
-5. Validate the environment before starting the stack:
+6. Validate the environment before starting the stack:
 
 ```bash
 npm run validate:env
 ```
 
-6. Start the stack:
+7. Start the stack:
 
 ```bash
 docker compose up -d --build
+```
+
+The request path is:
+
+```text
+Cloudflare HTTPS -> VPS origin http://<server-ip>:8080 -> Next.js app port 3000
 ```
 
 For a local VPS-shape verification, run:
@@ -66,9 +66,8 @@ npm run restore:db -- backups/operation_empathy-example.sql --yes
 ## Manual Acceptance Checks
 
 - `https://your-domain.example/api/health` returns `"ok":true` and reports `postgres` storage when `DATABASE_URL` is reachable.
-- An unauthenticated request to `https://your-domain.example/api/health` returns `401`.
-- An authenticated request with the basic-auth user returns `200`.
-- The site requires VPN access or basic auth before the dashboard is visible.
+- `http://127.0.0.1:8080/api/health` returns `"ok":true` on the VPS.
+- The site requires Cloudflare Access, VPN access, firewall allowlists, or equivalent protection before the dashboard is visible.
 - Manual CSV/JSON import accepts only public/mock examples.
 - High medical risk posts cannot be approved.
 - Drafts with links, DM requests, medical claims, discount codes, or affiliate language fail compliance.
@@ -83,9 +82,9 @@ Useful VPS checks:
 ```bash
 docker compose config --quiet
 docker compose ps
-docker compose logs --tail=100 app caddy postgres
+docker compose logs --tail=100 app postgres
+curl -i http://127.0.0.1:8080/api/health
 curl -i https://your-domain.example/api/health
-curl -i -u "$BASIC_AUTH_USER:plain_password" https://your-domain.example/api/health
 ```
 
 ## Safety Boundary
