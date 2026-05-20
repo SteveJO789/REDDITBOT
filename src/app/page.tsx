@@ -156,9 +156,13 @@ export default function Home() {
   const [minRelevance, setMinRelevance] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
   const [importMessage, setImportMessage] = useState("");
+  const [redditSearchQuery, setRedditSearchQuery] = useState("");
+  const [isRedditSearching, setIsRedditSearching] = useState(false);
+  const [redditMessage, setRedditMessage] = useState("");
   const [hasLoadedSavedState, setHasLoadedSavedState] = useState(false);
   const [persistenceMode, setPersistenceMode] = useState<"loading" | "server" | "local">("loading");
   const [saveError, setSaveError] = useState("");
+  const [redditReadOnlyEnabled, setRedditReadOnlyEnabled] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
@@ -168,9 +172,15 @@ export default function Home() {
       let nextPersistenceMode: "server" | "local" = "local";
 
       try {
-        const response = await fetch("/api/review-state", { cache: "no-store" });
+        const response = await fetch("/api/health", { cache: "no-store" });
         if (response.ok) {
-          const payload = (await response.json()) as {
+           const health = await response.json() as { redditReadOnlyEnabled?: boolean };
+           if (health.redditReadOnlyEnabled) setRedditReadOnlyEnabled(true);
+        }
+
+        const stateResponse = await fetch("/api/review-state", { cache: "no-store" });
+        if (stateResponse.ok) {
+          const payload = (await stateResponse.json()) as {
             state?: Parameters<typeof hydrateSavedPosts>[0];
           };
           if (payload.state) {
@@ -331,6 +341,49 @@ export default function Home() {
     setImportMessage(`Imported ${importedReviewPosts.length} public/mock examples.`);
   }
 
+  async function searchReddit(query: string) {
+    if (!query || !redditReadOnlyEnabled) return;
+
+    setIsRedditSearching(true);
+    setRedditMessage("");
+
+    try {
+      const response = await fetch("/api/reddit/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, limit: 15 })
+      });
+
+      const data = await response.json() as { ok: boolean, posts?: any[], error?: string };
+
+      if (!response.ok || !data.ok || !data.posts) {
+        throw new Error(data.error || "Failed to fetch from Reddit API.");
+      }
+
+      // Filter out posts that already exist in our queue
+      const existingIds = new Set(posts.map(p => p.id));
+      const newPosts = data.posts.filter((p: any) => !existingIds.has(p.id));
+
+      if (newPosts.length === 0) {
+         setRedditMessage("No new posts found for that query.");
+         return;
+      }
+
+      const batchId = `reddit-search-${Date.now()}`;
+      const importedReviewPosts = newPosts.map((post: any) =>
+        createReviewPostFromPost(post, batchId)
+      );
+
+      setPosts((currentPosts) => [...currentPosts, ...importedReviewPosts]);
+      setSelectedId(importedReviewPosts[0]?.id ?? selectedId);
+      setRedditMessage(`Imported ${importedReviewPosts.length} new posts.`);
+    } catch (error) {
+      setRedditMessage((error as Error).message);
+    } finally {
+      setIsRedditSearching(false);
+    }
+  }
+
   function copyApprovedDraft() {
     if (!selectedPost || selectedPost.status !== "approved" || typeof navigator === "undefined") {
       return;
@@ -393,28 +446,61 @@ export default function Home() {
           <MetricCard label="Rejected" value={rejected} />
         </section>
 
-        <section className="mt-5 rounded-lg border border-line bg-white p-3 shadow-panel">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-sm font-bold text-ink">Manual Import</h2>
-              <p className="text-xs text-steel">CSV/JSON public examples. Required: id, title, body.</p>
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <section className="rounded-lg border border-line bg-white p-3 shadow-panel">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-ink">Manual Import</h2>
+                <p className="text-xs text-steel">CSV/JSON public examples. Required: id, title, body.</p>
+              </div>
+              <label className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-md bg-night px-4 py-2 text-sm font-bold text-white hover:bg-slate-700">
+                Import CSV/JSON
+                <input
+                  className="sr-only"
+                  type="file"
+                  accept=".csv,.json,application/json,text/csv"
+                  onChange={(event) => {
+                    void importFile(event.target.files?.[0] ?? null);
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
             </div>
-            <label className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-md bg-night px-4 py-2 text-sm font-bold text-white hover:bg-slate-700">
-              Import CSV/JSON
-              <input
-                className="sr-only"
-                type="file"
-                accept=".csv,.json,application/json,text/csv"
-                onChange={(event) => {
-                  void importFile(event.target.files?.[0] ?? null);
-                  event.currentTarget.value = "";
-                }}
-              />
-            </label>
-          </div>
-          {importMessage ? <p className="mt-2 text-xs font-medium text-steel" aria-live="polite">{importMessage}</p> : null}
-          {saveError ? <p className="mt-2 text-xs font-bold text-danger" aria-live="polite">{saveError}</p> : null}
-        </section>
+            {importMessage ? <p className="mt-2 text-xs font-medium text-steel" aria-live="polite">{importMessage}</p> : null}
+            {saveError ? <p className="mt-2 text-xs font-bold text-danger" aria-live="polite">{saveError}</p> : null}
+          </section>
+
+          {redditReadOnlyEnabled && (
+            <section className="rounded-lg border border-teal-200 bg-teal-50 p-3 shadow-panel">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-teal-900">Live Reddit Search (Read-Only)</h2>
+                  <p className="text-xs text-teal-700">Fetch recent posts by keyword or subreddit.</p>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. skin irritation"
+                    className="h-11 rounded-md border border-teal-200 bg-white px-3 text-sm text-ink outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-400"
+                    value={redditSearchQuery}
+                    onChange={(e) => setRedditSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void searchReddit(redditSearchQuery);
+                    }}
+                  />
+                  <button
+                    className="inline-flex min-h-11 items-center justify-center rounded-md bg-signal px-4 py-2 text-sm font-bold text-white hover:bg-teal-800 disabled:opacity-50"
+                    onClick={() => void searchReddit(redditSearchQuery)}
+                    disabled={isRedditSearching || !redditSearchQuery}
+                  >
+                    {isRedditSearching ? "Searching..." : "Search"}
+                  </button>
+                </div>
+              </div>
+              {redditMessage ? <p className="mt-2 text-xs font-medium text-teal-800" aria-live="polite">{redditMessage}</p> : null}
+            </section>
+          )}
+        </div>
 
         <section className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.08fr)_minmax(400px,0.92fr)]">
           <div className="min-w-0">

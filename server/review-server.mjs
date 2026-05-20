@@ -130,8 +130,44 @@ createServer(async (req, res) => {
       ok: true,
       storage: store.kind,
       outreachWriteEnabled: process.env.OUTREACH_WRITE_ENABLED === "true",
-      llmEnabled: process.env.LLM_ENABLED === "true"
+      llmEnabled: process.env.LLM_ENABLED === "true",
+      redditReadOnlyEnabled: process.env.REDDIT_READ_ONLY_ENABLED === "true"
     });
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/reddit/search" && req.method === "POST") {
+    if (process.env.REDDIT_READ_ONLY_ENABLED !== "true") {
+      sendJson(res, 403, { ok: false, error: "Reddit API read-only mode is not enabled." });
+      return;
+    }
+    try {
+      const { searchRedditPosts } = await import("./reddit-api.mjs");
+      const body = await readJsonBody(req);
+      const query = body.query;
+      const limit = Number.isInteger(body.limit) ? Math.min(body.limit, 25) : 10;
+      
+      if (!query || typeof query !== "string") {
+        sendJson(res, 400, { ok: false, error: "Query is required." });
+        return;
+      }
+      
+      const rawPosts = await searchRedditPosts(query, limit);
+      const mappedPosts = rawPosts.map(post => ({
+        id: `t3_${post.id}`,
+        title: post.title,
+        body: post.selftext || post.url || "",
+        subreddit: post.subreddit,
+        excerpt: (post.selftext || "").slice(0, 160),
+        matchedKeyword: query,
+        createdAt: new Date(post.created_utc * 1000).toISOString()
+      }));
+
+      sendJson(res, 200, { ok: true, posts: mappedPosts });
+    } catch (error) {
+      console.error("Reddit search failure:", error);
+      sendJson(res, 500, { ok: false, error: error.message || "Failed to search Reddit." });
+    }
     return;
   }
 

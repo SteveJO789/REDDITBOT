@@ -153,21 +153,21 @@ Persistence targets:
 
 Approval means a human may decide what to do outside the system. It does not mean the app posts to Reddit.
 
-## Phase 4: Read-Only Research Mode
+## Phase 4: Read-Only Research Mode (Completed)
 
-Timeline: Only after explicit approval.
+Timeline: Explicit approval granted.
 
 Goal: Explore whether an approved public data source can improve discovery while keeping the system non-automated.
 
 Requirements before this phase:
 
-- Policy review.
-- Clear approved API scope.
-- Read-only access only.
-- No posting permission.
-- No DM permission.
-- No account farming or account rotation.
-- No production customer data.
+- [x] Policy review.
+- [x] Clear approved API scope.
+- [x] Read-only access only.
+- [x] No posting permission.
+- [x] No DM permission.
+- [x] No account farming or account rotation.
+- [x] No production customer data.
 
 If a real Reddit integration is approved, it should start as read-only import into the review queue. Human users still decide whether and how to respond manually.
 

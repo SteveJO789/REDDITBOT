@@ -2,6 +2,15 @@
 
 Operation Empathy Dashboard is an internal mock-data prototype for showing how AI could support sales growth without touching production systems. It reviews simulated public conversations, scores opportunity fit, detects safety and promotion risks, drafts non-promotional public replies, and requires a human decision before anything could be used.
 
+## Current Status
+
+- Internal dashboard prototype, not a production outreach system.
+- Mock data and manual CSV/JSON imports are supported.
+- Browser-local state works for static demo mode.
+- VPS/server mode persists review state through the internal API and PostgreSQL.
+- Optional AI classification and draft generation exist behind `LLM_ENABLED=true`, but they stay off by default.
+- Safety and compliance checks are built into the review flow.
+
 ## What This Prototype Demonstrates
 
 - A Next.js, TypeScript, and Tailwind CSS internal dashboard.
@@ -25,7 +34,7 @@ Operation Empathy Dashboard is an internal mock-data prototype for showing how A
 - No auto-DM.
 - No affiliate links or product recommendations in first public replies.
 - No medical treatment claims or claims that any product cures burnout, numbness, brain fog, wrist pain, or carpal tunnel.
-- No real AI API calls.
+- No AI calls by default unless `LLM_ENABLED=true` is set in an internal environment.
 
 ## How To Run Locally
 
@@ -165,11 +174,11 @@ The workflow runs tests, lint, and a static build, then deploys the generated `o
 
 The working direction is an internal decision-support dashboard, not an automated Reddit sales bot.
 
-1. Phase 1: Build and demo the mock-data dashboard.
+1. Phase 1: Keep the mock-data dashboard working in both browser-local and server modes.
 2. Phase 2: Strengthen local classification, compliance checking, draft generation, and review status tracking.
-3. Phase 3: Add real AI classification and draft generation only after local safety tests are stable.
-4. Phase 4: Improve the human review workflow with explicit approve, edit, reject, Do Not Engage, and compliance review actions.
-5. Phase 5: Add learning-focused analytics for pain points, risk levels, approval quality, objections, and resource-request opportunities.
+3. Phase 3: Use optional internal AI classification and draft generation only when the safety gate and environment flags are explicitly enabled.
+4. Phase 4: Keep the human review workflow explicit with approve, edit, reject, Do Not Engage, and compliance review actions.
+5. Phase 5: Expand learning-focused analytics for pain points, risk levels, approval quality, objections, and resource-request opportunities.
 6. Phase 6: Consider read-only public data research only after policy review and explicit approval.
 7. Phase 7: Consider company website or CRM integration only after a separate production safety review.
 

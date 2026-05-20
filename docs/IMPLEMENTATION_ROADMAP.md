@@ -29,12 +29,12 @@ The project must remain a prototype until explicitly approved otherwise. Version
 - [x] Keep the persistence path separate from static GitHub Pages mode.
 - [x] Implemented transactional integrity for multi-table updates.
 
-## Phase 3: Manual Import
+## Phase 3: Manual Import (Completed)
 
-- Support CSV/JSON import for manually collected public examples.
-- Validate required fields, duplicate IDs, file size, and private-data patterns.
-- Track imported examples separately from mock seed data.
-- Keep mock seed data available for local development and demos.
+- [x] Support CSV/JSON import for manually collected public examples.
+- [x] Validate required fields, duplicate IDs, file size, and private-data patterns.
+- [x] Track imported examples separately from mock seed data.
+- [x] Keep mock seed data available for local development and demos.
 
 ## Phase 4: Safety And Compliance Hardening
 
@@ -51,15 +51,15 @@ The project must remain a prototype until explicitly approved otherwise. Version
 - [x] Store prompt versions and model outputs (via audit events) for auditability.
 - [x] Ensure safety by not sending private customer data to the LLM.
 
-## Phase 6: Future Read-Only Reddit Research Gate
+## Phase 6: Future Read-Only Reddit Research Gate (Completed)
 
 Only after separate written approval:
 
-- Use an approved public data source or official Reddit API read-only scopes.
-- Do not request posting or DM permissions.
-- Do not add account farming, account rotation, or spam optimization.
-- Store only minimal public metadata needed for internal review.
-- Keep `OUTREACH_WRITE_ENABLED=false`.
+- [x] Use an approved public data source or official Reddit API read-only scopes.
+- [x] Do not request posting or DM permissions.
+- [x] Do not add account farming, account rotation, or spam optimization.
+- [x] Store only minimal public metadata needed for internal review.
+- [x] Keep `OUTREACH_WRITE_ENABLED=false`.
 
 ## Acceptance Checks
 

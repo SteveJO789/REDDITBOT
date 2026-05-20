@@ -14,6 +14,19 @@ This project must be treated as a prototype first. It must not connect to produc
 
 The system should help humans work faster. It must not behave like an automated sales bot.
 
+## Current Implementation Snapshot
+
+The active codebase currently uses:
+
+- Mock data for the main dashboard demo
+- Manual CSV/JSON import for public or mock examples
+- Browser-local state for static demo usage
+- Server-side review-state persistence in VPS mode
+- Optional AI classify/draft endpoints behind `LLM_ENABLED=true`
+- Human review gates before any reply can be approved
+
+Treat `README.md` and `docs/PROJECT_STATUS.md` as the current summary of implemented scope.
+
 ---
 
 ## Business Context
@@ -90,6 +103,8 @@ The current version should use:
 - No automatic outreach
 
 The prototype should be safe to demo internally to managers, marketing, sales, operations, and compliance teams.
+
+The prototype also supports a server-backed internal mode for persistence, but that mode stays internal-only and does not change the outreach restrictions above.
 
 ---
 
@@ -253,6 +268,8 @@ Forbidden CTA:
 
 The first public reply must be helpful, non-promotional, and link-free.
 
+If optional AI is enabled, it must still respect the same safety rules and human-review requirement.
+
 ---
 
 ### 6. Human Review Workflow
@@ -359,3 +376,6 @@ Recommended structure:
   /lib
   /types
   /prompts
+```
+
+Keep docs and implementation aligned when scope changes. Do not leave README or project-status text describing a different product shape than the current dashboard.
