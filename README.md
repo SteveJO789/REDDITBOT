@@ -85,6 +85,12 @@ Start the VPS stack after creating `.env`:
 docker compose up -d --build
 ```
 
+Verify the app and PostgreSQL persistence path:
+
+```bash
+npm run verify:docker
+```
+
 In VPS mode, `npm run start` runs `server/review-server.mjs`. The server exposes:
 
 - `GET /api/health` for a basic runtime and persistence check.

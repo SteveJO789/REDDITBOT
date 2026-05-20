@@ -35,6 +35,14 @@ LLM_ENABLED=false
 docker compose up -d --build
 ```
 
+For a local VPS-shape verification, run:
+
+```bash
+npm run verify:docker
+```
+
+This builds `postgres` and `app`, confirms `/api/health` reports PostgreSQL storage, writes a review-state payload, and verifies the row directly in PostgreSQL.
+
 ## Manual Acceptance Checks
 
 - `https://your-domain.example/api/health` returns `"ok":true` and reports `postgres` storage when `DATABASE_URL` is reachable.
