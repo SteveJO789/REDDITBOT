@@ -70,12 +70,15 @@ export function createSavedDashboardState(posts: ReviewPost[]): Exclude<SavedDas
       .filter((post) => !initialIds.has(post.id))
       .map((post) => ({
         id: post.id,
+        author: post.author,
         subreddit: post.subreddit,
         title: post.title,
         excerpt: post.excerpt,
         body: post.body,
         matchedKeyword: post.matchedKeyword,
-        createdAt: post.createdAt
+        createdAt: post.createdAt,
+        url: post.url,
+        content: post.content
       }))
   };
 }

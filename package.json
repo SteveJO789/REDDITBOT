@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev-server.mjs",
+    "dev:db": "node server/review-server.mjs",
+    "dev:next": "next dev",
     "build": "next build",
     "start": "node server/review-server.mjs",
     "start:next": "next start",

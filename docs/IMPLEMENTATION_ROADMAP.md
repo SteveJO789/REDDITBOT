@@ -2,24 +2,24 @@
 
 ## Summary
 
-Operation Empathy is an internal decision-support dashboard for reviewing public or mock pain-point examples, classifying opportunity fit, drafting safe helpful replies, and requiring human review before any response is used.
+Operation Empathy is an internal decision-support dashboard for reviewing imported public pain-point examples, classifying opportunity fit, drafting safe helpful replies, and requiring human review before any response is used.
 
-The project must remain a prototype until explicitly approved otherwise. Version 1 uses mock data, manual CSV/JSON imports, local mock AI logic, and internal-only persistence. It does not connect to Reddit, production systems, payment, shipping, CRM, customer databases, posting workflows, or direct-message workflows.
+The project must remain a prototype until explicitly approved otherwise. The current version uses manual CSV/JSON imports, Reddit Listing JSON imports, read-only Reddit `.json` fetches when enabled, local deterministic safety logic, optional OpenRouter analysis, and internal-only persistence. It does not connect to production systems, payment, shipping, CRM, customer databases, posting workflows, or direct-message workflows.
 
 ## Current Direction
 
 - Hosting: internal VPS with Docker Compose. Cloudflare terminates public HTTPS and forwards to the app on origin HTTP port `8080`; protect access with Cloudflare Access, VPN, firewall allowlists, or equivalent controls.
 - App: Next.js, TypeScript, Tailwind CSS, and Vitest.
-- Data sources: mock seed data and manual public-example imports only.
+- Data sources: manual public-example imports, Reddit Listing JSON imports, and read-only Reddit `.json` fetches when enabled.
 - Persistence: PostgreSQL in VPS mode, with a file fallback for local server tests.
-- Safety flags: `OUTREACH_WRITE_ENABLED=false`, `REDDIT_READ_ONLY_ENABLED=false`, and `LLM_ENABLED=false` for v1.
+- Safety flags: `OUTREACH_WRITE_ENABLED=false`; read-only Reddit and OpenRouter analysis are separately gated by `REDDIT_READ_ONLY_ENABLED` and `LLM_ENABLED`.
 
 ## Phase 1: Production-Shaped Internal Demo
 
-- Keep the existing dashboard behavior working with mock data.
+- Keep the dashboard working with an empty default queue and imported public examples.
 - Maintain Docker, Compose, Cloudflare origin, and environment documentation.
 - Preserve GitHub Actions checks: tests, lint, and build.
-- Keep GitHub Pages static export available for mock-only public demo hosting.
+- Keep GitHub Pages static export available for browser-local usage.
 
 ## Phase 2: Persistent Review Workflow (Completed)
 
@@ -33,8 +33,8 @@ The project must remain a prototype until explicitly approved otherwise. Version
 
 - [x] Support CSV/JSON import for manually collected public examples.
 - [x] Validate required fields, duplicate IDs, file size, and private-data patterns.
-- [x] Track imported examples separately from mock seed data.
-- [x] Keep mock seed data available for local development and demos.
+- [x] Track imported examples separately from empty seed state.
+- [x] Keep the default review queue empty until import or read-only fetch.
 
 ## Phase 4: Safety And Compliance Hardening
 
@@ -45,17 +45,17 @@ The project must remain a prototype until explicitly approved otherwise. Version
 
 ## Phase 5: Optional Real AI (Completed)
 
-- [x] Add LLM classification and drafting behind `LLM_ENABLED=true` using Gemini 1.5 Flash.
-- [x] Implemented server-side `/api/ai` endpoints to handle AI logic securely.
+- [x] Add OpenRouter classification and drafting behind `LLM_ENABLED=true`.
+- [x] Implemented server-side `/api/ai/analyze` endpoint to handle AI logic securely.
 - [x] Keep deterministic fallback logic for tests and demos.
 - [x] Store prompt versions and model outputs (via audit events) for auditability.
 - [x] Ensure safety by not sending private customer data to the LLM.
 
-## Phase 6: Future Read-Only Reddit Research Gate (Completed)
+## Phase 6: Read-Only Reddit Research Gate (Completed)
 
 Only after separate written approval:
 
-- [x] Use an approved public data source or official Reddit API read-only scopes.
+- [x] Use Reddit `.json` Listing endpoints as read-only public data sources.
 - [x] Do not request posting or DM permissions.
 - [x] Do not add account farming, account rotation, or spam optimization.
 - [x] Store only minimal public metadata needed for internal review.
@@ -66,7 +66,7 @@ Only after separate written approval:
 - Tests, lint, normal build, and GitHub Pages static export build pass.
 - Internal server `/api/health` returns `ok: true`.
 - Review state survives browser refresh in server mode.
-- Manual import accepts public/mock examples and rejects private data.
+- Manual import accepts public examples and rejects blocking private data.
 - High medical risk cannot be approved.
 - Risky draft wording fails compliance.
 - Approved drafts do not trigger any network outreach.

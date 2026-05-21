@@ -15,7 +15,14 @@ import {
   parseSavedDashboardState
 } from "@/lib/persistenceState";
 import { applyReviewAction, getApprovalBlockers } from "@/lib/reviewWorkflow";
-import type { ResourceStatus, ReviewPost, ReviewStatus, RiskLevel } from "@/lib/types";
+import type {
+  ClassificationResult,
+  MockPost,
+  ResourceStatus,
+  ReviewPost,
+  ReviewStatus,
+  RiskLevel
+} from "@/lib/types";
 
 const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
 
@@ -163,6 +170,9 @@ export default function Home() {
   const [persistenceMode, setPersistenceMode] = useState<"loading" | "server" | "local">("loading");
   const [saveError, setSaveError] = useState("");
   const [redditReadOnlyEnabled, setRedditReadOnlyEnabled] = useState(false);
+  const [llmEnabled, setLlmEnabled] = useState(false);
+  const [isAiProcessing, setIsAiProcessing] = useState(false);
+  const [aiMessage, setAiMessage] = useState("");
 
   useEffect(() => {
     let isCancelled = false;
@@ -174,7 +184,8 @@ export default function Home() {
       try {
         const response = await fetch("/api/health", { cache: "no-store" });
         if (response.ok) {
-           const health = await response.json() as { redditReadOnlyEnabled?: boolean };
+           const health = await response.json() as { llmEnabled?: boolean; redditReadOnlyEnabled?: boolean };
+           if (health.llmEnabled) setLlmEnabled(true);
            if (health.redditReadOnlyEnabled) setRedditReadOnlyEnabled(true);
         }
 
@@ -338,7 +349,7 @@ export default function Home() {
     );
     setPosts((currentPosts) => [...currentPosts, ...importedReviewPosts]);
     setSelectedId(importedReviewPosts[0]?.id ?? selectedId);
-    setImportMessage(`Imported ${importedReviewPosts.length} public/mock examples.`);
+    setImportMessage(`Imported ${importedReviewPosts.length} public examples.`);
   }
 
   async function searchReddit(query: string) {
@@ -354,15 +365,15 @@ export default function Home() {
         body: JSON.stringify({ query, limit: 15 })
       });
 
-      const data = await response.json() as { ok: boolean, posts?: any[], error?: string };
+      const data = (await response.json()) as { ok: boolean; posts?: MockPost[]; error?: string };
 
       if (!response.ok || !data.ok || !data.posts) {
         throw new Error(data.error || "Failed to fetch from Reddit API.");
       }
 
       // Filter out posts that already exist in our queue
-      const existingIds = new Set(posts.map(p => p.id));
-      const newPosts = data.posts.filter((p: any) => !existingIds.has(p.id));
+      const existingIds = new Set(posts.map((post) => post.id));
+      const newPosts = data.posts.filter((post) => !existingIds.has(post.id));
 
       if (newPosts.length === 0) {
          setRedditMessage("No new posts found for that query.");
@@ -370,7 +381,7 @@ export default function Home() {
       }
 
       const batchId = `reddit-search-${Date.now()}`;
-      const importedReviewPosts = newPosts.map((post: any) =>
+      const importedReviewPosts = newPosts.map((post) =>
         createReviewPostFromPost(post, batchId)
       );
 
@@ -381,6 +392,52 @@ export default function Home() {
       setRedditMessage((error as Error).message);
     } finally {
       setIsRedditSearching(false);
+    }
+  }
+
+  async function analyzeWithAI() {
+    if (!selectedPost || !llmEnabled) {
+      setAiMessage("OpenRouter AI is not enabled. Set LLM_ENABLED=true and OPENROUTER_API_KEY, then restart the server.");
+      return;
+    }
+
+    setIsAiProcessing(true);
+    setAiMessage("");
+
+    try {
+      const response = await fetch("/api/ai/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ post: selectedPost })
+      });
+      const data = (await response.json()) as {
+        ok: boolean;
+        classification?: ClassificationResult;
+        draft?: string;
+        error?: string;
+      };
+
+      if (!response.ok || !data.ok || !data.classification || !data.draft) {
+        throw new Error(data.error || "AI analysis failed.");
+      }
+
+      updateSelectedPost((post) =>
+        applyReviewAction({
+          post: {
+            ...post,
+            classification: data.classification as ClassificationResult
+          },
+          action: "edit_draft",
+          draftReply: data.draft,
+          actor: "openrouter-ai",
+          note: "OpenRouter analysis generated classification and draft. Human review is still required."
+        })
+      );
+      setAiMessage("OpenRouter analysis complete. Draft, risk flags, and compliance were refreshed.");
+    } catch (error) {
+      setAiMessage((error as Error).message);
+    } finally {
+      setIsAiProcessing(false);
     }
   }
 
@@ -415,7 +472,7 @@ export default function Home() {
           </div>
           <div className="flex flex-wrap gap-2 text-[11px] font-bold uppercase">
             <span className="rounded border border-teal-300/40 bg-teal-300/10 px-2.5 py-1 text-teal-100">
-              Mock data only
+              Import only
             </span>
             <span className="rounded border border-amber-300/40 bg-amber-300/10 px-2.5 py-1 text-amber-100">
               Human approval required
@@ -451,7 +508,9 @@ export default function Home() {
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="text-sm font-bold text-ink">Manual Import</h2>
-                <p className="text-xs text-steel">CSV/JSON public examples. Required: id, title, body.</p>
+                <p className="text-xs text-steel">
+                  CSV/JSON public examples, including Reddit Listing JSON. Required: id, title, body.
+                </p>
               </div>
               <label className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-md bg-night px-4 py-2 text-sm font-bold text-white hover:bg-slate-700">
                 Import CSV/JSON
@@ -675,9 +734,9 @@ export default function Home() {
               </div>
 
               <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                <section className="rounded-lg border border-line bg-panel p-3">
+                <section className="rounded-lg border border-line bg-panel p-3 lg:col-span-2">
                   <h3 className="text-xs font-bold uppercase text-steel">Original Post</h3>
-                  <p className="mt-2 max-h-28 overflow-auto whitespace-pre-line text-sm leading-6 text-ink">
+                  <p className="mt-2 max-h-72 overflow-auto whitespace-pre-line text-sm leading-6 text-ink">
                     {selectedPost.body}
                   </p>
                 </section>
@@ -846,23 +905,22 @@ export default function Home() {
               </section>
 
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                {llmEnabled ? (
-                  <>
-                    <button
-                      className="min-h-11 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
-                      onClick={reclassifyWithAI}
-                      disabled={isAiProcessing}
-                    >
-                      {isAiProcessing ? "Processing..." : "Run Real AI Classification"}
-                    </button>
-                    <button
-                      className="min-h-11 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-900 hover:bg-emerald-100 disabled:opacity-50"
-                      onClick={regenerateDraftWithAI}
-                      disabled={isAiProcessing}
-                    >
-                      {isAiProcessing ? "Processing..." : "Regenerate Draft with AI"}
-                    </button>
-                  </>
+                <button
+                  className="min-h-11 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-900 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                  onClick={analyzeWithAI}
+                  disabled={isAiProcessing || !llmEnabled}
+                >
+                  {isAiProcessing ? "Analyzing..." : "Analyze"}
+                </button>
+                {!llmEnabled ? (
+                  <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900">
+                    OpenRouter disabled. Set LLM_ENABLED=true and OPENROUTER_API_KEY, then restart the server.
+                  </p>
+                ) : null}
+                {aiMessage ? (
+                  <p className="rounded border border-line bg-panel px-3 py-2 text-xs font-medium text-steel sm:col-span-2">
+                    {aiMessage}
+                  </p>
                 ) : null}
                 <button
                   className="min-h-11 rounded-md bg-signal px-3 py-2 text-sm font-bold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
@@ -930,31 +988,6 @@ export default function Home() {
 
         <section className="mt-5">
           <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-sm font-bold uppercase text-ink">Analytics</h2>
-            </div>
-            <div className="rounded border border-line bg-white px-3 py-2 text-xs text-steel shadow-tight">
-              Avg relevance{" "}
-              <span className="font-semibold text-ink">{analytics.averageRelevance.toFixed(1)}/10</span>
-              {" "} / Resource requests{" "}
-              <span className="font-semibold text-ink">
-                {analytics.resourceRequestOpportunityCount}
-              </span>
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <ChartRows title="Posts by subreddit" rows={subredditRows} />
-            <ChartRows title="Posts by risk level" rows={riskRows} tone="rose" />
-            <ChartRows title="Review status count" rows={statusRows} tone="green" />
-            <ChartRows title="Top pain points" rows={painPointRows} />
-            <ChartRows title="Top risk signals" rows={objectionRows} tone="rose" />
-          </div>
-        </section>
-      </div>
-    </main>
-  );
-}
-justify-between">
             <div>
               <h2 className="text-sm font-bold uppercase text-ink">Analytics</h2>
             </div>

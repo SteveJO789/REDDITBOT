@@ -35,12 +35,15 @@ export type IntentCategory =
 
 export type MockPost = {
   id: string;
+  author?: string;
   subreddit: string;
   title: string;
   excerpt: string;
   body: string;
   matchedKeyword: string;
   createdAt: string;
+  url?: string;
+  content?: string;
 };
 
 export type ClassificationResult = {
@@ -95,3 +98,43 @@ export type ReviewPost = MockPost & {
   importBatchId?: string;
   auditEvents: AuditEvent[];
 };
+
+export interface RedditListing {
+  kind: "Listing";
+  data: RedditListingData;
+}
+
+export interface RedditListingData {
+  children: RedditListingChild[];
+  after?: string | null;
+  before?: string | null;
+  dist?: number | null;
+  modhash?: string;
+}
+
+export interface RedditListingChild {
+  kind: "t1" | "t3";
+  data: RedditPostData | RedditCommentData;
+}
+
+export interface RedditBaseChildData {
+  id?: string;
+  author?: string;
+  subreddit?: string;
+  permalink?: string;
+  created_utc?: number;
+}
+
+export interface RedditPostData extends RedditBaseChildData {
+  kind?: "t3";
+  title?: string;
+  selftext?: string;
+  body?: string;
+}
+
+export interface RedditCommentData extends RedditBaseChildData {
+  kind?: "t1";
+  body?: string;
+  selftext?: string;
+  title?: string;
+}

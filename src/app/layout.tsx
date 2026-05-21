@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Operation Empathy Dashboard",
-  description: "Mock-data AI sales opportunity review prototype"
+  description: "AI-assisted sales opportunity review prototype"
 };
 
 export default function RootLayout({

@@ -18,11 +18,14 @@ The system should help humans work faster. It must not behave like an automated 
 
 The active codebase currently uses:
 
-- Mock data for the main dashboard demo
-- Manual CSV/JSON import for public or mock examples
+- Empty default review queue; no seeded mock posts are shown by default
+- Manual CSV/JSON import for public examples
+- Raw Reddit `Listing` JSON import
+- Read-only Reddit `.json` endpoint import when `REDDIT_READ_ONLY_ENABLED=true`
 - Browser-local state for static demo usage
+- File-backed local state for `npm run dev`
 - Server-side review-state persistence in VPS mode
-- Optional AI classify/draft endpoints behind `LLM_ENABLED=true`
+- Optional OpenRouter Analyze flow behind `LLM_ENABLED=true` and `OPENROUTER_API_KEY`
 - Human review gates before any reply can be approved
 
 Treat `README.md` and `docs/PROJECT_STATUS.md` as the current summary of implemented scope.
@@ -93,9 +96,9 @@ If a requested feature conflicts with these rules, implement the safer alternati
 
 The current version should use:
 
-- Mock data only
-- Local state or localStorage
-- No real Reddit API
+- Public examples only
+- Manual import, Reddit Listing JSON import, or read-only Reddit `.json` fetch
+- Local state, localStorage, or file-backed local dev state
 - No real customer data
 - No payment integration
 - No shipping integration
@@ -116,8 +119,9 @@ Use:
 - TypeScript
 - Tailwind CSS
 - React components
-- Local mock data
-- Local mock AI logic
+- Public import data
+- Local deterministic classification and compliance logic
+- Optional OpenRouter analysis only when explicitly enabled
 
 Do not add unnecessary dependencies unless they clearly improve the prototype.
 
@@ -164,17 +168,17 @@ Use clear labels such as:
 
 ### 1. Lead Listening Module
 
-Use mock posts, comments, or customer messages to simulate public conversation discovery.
+Use imported public posts, comments, or read-only Reddit `.json` Listing responses to simulate public conversation discovery.
 
 The module should identify pain points, complaints, questions, and possible buying signals.
 
-Do not connect to real social platforms yet.
+Do not add posting, commenting, DM, browser automation, account management, or outreach-write access.
 
 ---
 
 ### 2. Intent Classification Module
 
-Classify each mock post into useful business categories such as:
+Classify each imported public post into useful business categories such as:
 
 - Asking for help
 - Looking for recommendations
@@ -327,11 +331,11 @@ Analytics should help the team learn, not encourage spam volume.
 
 ---
 
-## Mock Data Requirements
+## Import Data Requirements
 
-Create realistic mock data across different channels or communities.
+The default queue should remain empty. Do not reintroduce seeded demo posts unless explicitly requested.
 
-Include examples for:
+Imported examples should be public and suitable for internal review. Prefer examples that cover:
 
 - Burnout
 - Brain fog
@@ -346,7 +350,7 @@ Include examples for:
 - Meme or joke post
 - High medical risk case
 
-Include enough variation to test classification, compliance, and review workflow.
+Include enough variation to test classification, compliance, and review workflow without storing sensitive personal data.
 
 ---
 

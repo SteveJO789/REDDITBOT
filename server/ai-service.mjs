@@ -28,6 +28,16 @@ You must follow these safety rules:
 5. Detect low-quality memes or rants.
 `;
 
+function parseJsonObject(text) {
+  const trimmed = text.trim();
+  const unfenced = trimmed
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  return JSON.parse(unfenced);
+}
+
 export async function classifyPostWithAI(post) {
   if (!openai) {
     throw new Error("OpenRouter AI is not enabled or API key is missing.");
@@ -57,6 +67,8 @@ export async function classifyPostWithAI(post) {
 
   const completion = await openai.chat.completions.create({
     model: modelName,
+    max_tokens: 900,
+    temperature: 0.2,
     messages: [
       { role: "system", content: systemInstruction },
       { role: "user", content: prompt }
@@ -67,8 +79,8 @@ export async function classifyPostWithAI(post) {
   const text = completion.choices[0].message.content;
   
   try {
-    return JSON.parse(text);
-  } catch (error) {
+    return parseJsonObject(text);
+  } catch {
     console.error("Failed to parse AI JSON output:", text);
     throw new Error("AI returned invalid data format.");
   }
@@ -99,6 +111,8 @@ export async function generateDraftWithAI(post, classification) {
 
   const completion = await openai.chat.completions.create({
     model: modelName,
+    max_tokens: 700,
+    temperature: 0.4,
     messages: [
       { role: "system", content: systemInstruction },
       { role: "user", content: prompt }
@@ -106,4 +120,15 @@ export async function generateDraftWithAI(post, classification) {
   });
 
   return completion.choices[0].message.content.trim();
+}
+
+export async function analyzePostWithAI(post) {
+  const classification = await classifyPostWithAI(post);
+  const draft = await generateDraftWithAI(post, classification);
+
+  return { classification, draft };
+}
+
+export function isOpenRouterConfigured() {
+  return Boolean(openai);
 }

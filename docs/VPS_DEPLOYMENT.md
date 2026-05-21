@@ -68,7 +68,7 @@ npm run restore:db -- backups/operation_empathy-example.sql --yes
 - `https://your-domain.example/api/health` returns `"ok":true` and reports `postgres` storage when `DATABASE_URL` is reachable.
 - `http://127.0.0.1:8080/api/health` returns `"ok":true` on the VPS.
 - The site requires Cloudflare Access, VPN access, firewall allowlists, or equivalent protection before the dashboard is visible.
-- Manual CSV/JSON import accepts only public/mock examples.
+- Manual CSV/JSON import accepts only public examples.
 - High medical risk posts cannot be approved.
 - Drafts with links, DM requests, medical claims, discount codes, or affiliate language fail compliance.
 - A changed review status survives a browser refresh through server persistence.

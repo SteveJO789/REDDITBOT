@@ -1,8 +1,17 @@
 import { createServer } from "node:http";
+import nextEnv from "@next/env";
 import next from "next";
 import { createReviewStateStore } from "./review-state-store.mjs";
 
 const dev = process.env.NODE_ENV !== "production";
+const { loadEnvConfig } = nextEnv;
+loadEnvConfig(process.cwd(), dev);
+const {
+  analyzePostWithAI,
+  classifyPostWithAI,
+  generateDraftWithAI,
+  isOpenRouterConfigured
+} = await import("./ai-service.mjs");
 const hostname = process.env.HOST ?? "0.0.0.0";
 const port = Number(process.env.PORT ?? 3000);
 const importMaxFileMb = Number(process.env.IMPORT_MAX_FILE_MB ?? 5);
@@ -130,7 +139,7 @@ createServer(async (req, res) => {
       ok: true,
       storage: store.kind,
       outreachWriteEnabled: process.env.OUTREACH_WRITE_ENABLED === "true",
-      llmEnabled: process.env.LLM_ENABLED === "true",
+      llmEnabled: isOpenRouterConfigured(),
       redditReadOnlyEnabled: process.env.REDDIT_READ_ONLY_ENABLED === "true"
     });
     return;
@@ -152,18 +161,9 @@ createServer(async (req, res) => {
         return;
       }
       
-      const rawPosts = await searchRedditPosts(query, limit);
-      const mappedPosts = rawPosts.map(post => ({
-        id: `t3_${post.id}`,
-        title: post.title,
-        body: post.selftext || post.url || "",
-        subreddit: post.subreddit,
-        excerpt: (post.selftext || "").slice(0, 160),
-        matchedKeyword: query,
-        createdAt: new Date(post.created_utc * 1000).toISOString()
-      }));
+      const posts = await searchRedditPosts(query, limit);
 
-      sendJson(res, 200, { ok: true, posts: mappedPosts });
+      sendJson(res, 200, { ok: true, posts });
     } catch (error) {
       console.error("Reddit search failure:", error);
       sendJson(res, 500, { ok: false, error: error.message || "Failed to search Reddit." });
@@ -172,8 +172,8 @@ createServer(async (req, res) => {
   }
 
   if (requestUrl.pathname === "/api/ai/classify" && req.method === "POST") {
-    if (process.env.LLM_ENABLED !== "true") {
-      sendJson(res, 400, { ok: false, error: "LLM is not enabled." });
+    if (!isOpenRouterConfigured()) {
+      sendJson(res, 400, { ok: false, error: "OpenRouter AI is not enabled or API key is missing." });
       return;
     }
     try {
@@ -187,14 +187,29 @@ createServer(async (req, res) => {
   }
 
   if (requestUrl.pathname === "/api/ai/draft" && req.method === "POST") {
-    if (process.env.LLM_ENABLED !== "true") {
-      sendJson(res, 400, { ok: false, error: "LLM is not enabled." });
+    if (!isOpenRouterConfigured()) {
+      sendJson(res, 400, { ok: false, error: "OpenRouter AI is not enabled or API key is missing." });
       return;
     }
     try {
       const body = await readJsonBody(req);
       const result = await generateDraftWithAI(body.post, body.classification);
       sendJson(res, 200, { ok: true, draft: result });
+    } catch (error) {
+      sendJson(res, 500, { ok: false, error: error.message });
+    }
+    return;
+  }
+
+  if (requestUrl.pathname === "/api/ai/analyze" && req.method === "POST") {
+    if (!isOpenRouterConfigured()) {
+      sendJson(res, 400, { ok: false, error: "OpenRouter AI is not enabled or API key is missing." });
+      return;
+    }
+    try {
+      const body = await readJsonBody(req);
+      const result = await analyzePostWithAI(body.post);
+      sendJson(res, 200, { ok: true, ...result });
     } catch (error) {
       sendJson(res, 500, { ok: false, error: error.message });
     }

@@ -1,4 +1,5 @@
 import type { MockPost } from "./types";
+import { isRedditListing, mapRedditListingToMockPosts } from "./redditImport";
 
 export type ImportFormat = "json" | "csv";
 
@@ -16,11 +17,13 @@ export type ImportValidationResult =
     };
 
 const requiredFields = ["id", "title", "body"] as const;
-const privateDataPatterns = [
+const blockingPrivateDataPatterns = [
   { label: "email address", pattern: /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i },
-  { label: "phone number", pattern: /(?:\+?\d[\s().-]?){8,}\d/ },
   { label: "payment or card number", pattern: /\b(?:\d[ -]*?){13,19}\b/ },
   { label: "shipping address marker", pattern: /\b(?:shipping address|home address|street address)\b/i }
+];
+const warningPrivateDataPatterns = [
+  { label: "phone number", pattern: /(?:\+?\d[\s().-]?){8,}\d/ }
 ];
 
 function normaliseText(value: unknown) {
@@ -80,12 +83,16 @@ function parseImportText(text: string, format: ImportFormat) {
   }
 
   const parsed = JSON.parse(text) as unknown;
+  if (isRedditListing(parsed)) {
+    return mapRedditListingToMockPosts(parsed);
+  }
+
   return Array.isArray(parsed) ? parsed : [parsed];
 }
 
-function hasPrivateData(post: MockPost) {
+function findPatternMatches(post: MockPost, patterns: Array<{ label: string; pattern: RegExp }>) {
   const text = `${post.title} ${post.excerpt} ${post.body}`;
-  return privateDataPatterns
+  return patterns
     .filter(({ pattern }) => pattern.test(text))
     .map(({ label }) => label);
 }
@@ -125,20 +132,30 @@ export function validateManualImportRows(
 
     const post: MockPost = {
       id,
+      author: normaliseText(record.author) || normaliseText(record.username) || undefined,
       subreddit: normaliseText(record.subreddit) || normaliseText(record.channel) || "manual-import",
       title: normaliseText(record.title),
       excerpt: normaliseText(record.excerpt) || normaliseText(record.body).slice(0, 160),
       body: normaliseText(record.body),
       matchedKeyword: normaliseText(record.matchedKeyword) || normaliseText(record.keyword) || "manual import",
-      createdAt: normaliseText(record.createdAt) || new Date().toISOString().slice(0, 10)
+      createdAt: normaliseText(record.createdAt) || new Date().toISOString().slice(0, 10),
+      url: normaliseText(record.url) || undefined,
+      content: normaliseText(record.content) || normaliseText(record.body) || undefined
     };
 
-    const privateDataMatches = hasPrivateData(post);
-    if (privateDataMatches.length > 0) {
+    const blockingPrivateDataMatches = findPatternMatches(post, blockingPrivateDataPatterns);
+    if (blockingPrivateDataMatches.length > 0) {
       errors.push(
-        `Row ${rowIndex + 1} appears to contain private data: ${privateDataMatches.join(", ")}.`
+        `Row ${rowIndex + 1} appears to contain private data: ${blockingPrivateDataMatches.join(", ")}.`
       );
       return;
+    }
+
+    const warningPrivateDataMatches = findPatternMatches(post, warningPrivateDataPatterns);
+    if (warningPrivateDataMatches.length > 0) {
+      warnings.push(
+        `Row ${rowIndex + 1} may contain private data: ${warningPrivateDataMatches.join(", ")}. Review before using it.`
+      );
     }
 
     seenIds.add(id);
@@ -150,7 +167,7 @@ export function validateManualImportRows(
   }
 
   if (posts.length > 0) {
-    warnings.push("Manual import accepted mock/public examples only; do not import private customer data.");
+    warnings.push("Manual import accepted public examples only; do not import private customer data.");
   }
 
   return errors.length > 0

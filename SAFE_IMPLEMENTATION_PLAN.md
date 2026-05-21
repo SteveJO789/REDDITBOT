@@ -35,14 +35,16 @@ Revised score after safety correction target: 8/10.
 
 Timeline: Week 1-2
 
-Goal: Create a clear internal demo using only mock data and local state, deployable to an internal VPS.
+Goal: Create a clear internal demo using imported public examples and local state, deployable to an internal VPS.
 
 Deliverables:
 
 - Next.js, TypeScript, and Tailwind dashboard.
-- Mock post review queue.
+- Empty default review queue.
+- Manual public-example import.
+- Read-only Reddit Listing import when enabled.
 - Summary cards and simple analytics.
-- Local mock classification.
+- Local deterministic classification.
 - Local compliance checker.
 - Safe draft reply generator.
 - Human review controls.
@@ -51,7 +53,7 @@ Deliverables:
 
 Hard limits:
 
-- No real Reddit API.
+- No Reddit posting, commenting, DM, or account-management access.
 - No real customer data.
 - No database unless local-only storage is needed.
 - PostgreSQL is allowed only for internal review state, classifications, drafts, compliance results, import batches, and audit events.
@@ -126,13 +128,14 @@ Approval must remain a human-only review decision. High-risk medical cases and f
 
 ## Phase 3A: Manual Import And Persistence
 
-Goal: Replace ad hoc local examples with traceable manual imports and persistent internal review state.
+Goal: Use traceable imports and persistent internal review state.
 
 Allowed v1 input:
 
 - Manual CSV import.
 - Manual JSON import.
-- Mock seed data for local development and demos.
+- Raw Reddit Listing JSON import.
+- Read-only Reddit `.json` fetches when explicitly enabled.
 
 Import validation must reject:
 
@@ -173,9 +176,9 @@ If a real Reddit integration is approved, it should start as read-only import in
 
 ## Phase 5: AI Upgrade
 
-Timeline: Only after the mock workflow is stable.
+Timeline: Completed for internal testing.
 
-Goal: Replace local mock AI logic with real AI assistance while preserving the same safety boundaries.
+Goal: Add OpenRouter assistance while preserving the same safety boundaries.
 
 Allowed AI tasks:
 
