@@ -4,13 +4,13 @@
 
 Operation Empathy is an internal decision-support dashboard for reviewing imported public pain-point examples, classifying opportunity fit, drafting safe helpful replies, and requiring human review before any response is used.
 
-The project must remain a prototype until explicitly approved otherwise. The current version uses manual CSV/JSON imports, Reddit Listing JSON imports, read-only Reddit `.json` fetches when enabled, local deterministic safety logic, optional OpenRouter analysis, and internal-only persistence. It does not connect to production systems, payment, shipping, CRM, customer databases, posting workflows, or direct-message workflows.
+The project must remain a prototype until explicitly approved otherwise. The current version uses manual CSV/JSON imports, Reddit Listing JSON imports, read-only Reddit `.json` fetches when enabled, multi-platform read-only public-source intake, local deterministic safety logic, optional OpenRouter analysis, internal-only persistence, and internal report outputs. It does not connect to production systems, payment, shipping, CRM, customer databases, posting workflows, or direct-message workflows.
 
 ## Current Direction
 
 - Hosting: internal VPS with Docker Compose. Cloudflare terminates public HTTPS and forwards to the app on origin HTTP port `8080`; protect access with Cloudflare Access, VPN, firewall allowlists, or equivalent controls.
 - App: Next.js, TypeScript, Tailwind CSS, and Vitest.
-- Data sources: manual public-example imports, Reddit Listing JSON imports, and read-only Reddit `.json` fetches when enabled.
+- Data sources: manual public-example imports, Reddit Listing JSON imports, read-only Reddit `.json` fetches when enabled, and analyst-provided public-source evidence records.
 - Persistence: PostgreSQL in VPS mode, with a file fallback for local server tests.
 - Safety flags: `OUTREACH_WRITE_ENABLED=false`; read-only Reddit and OpenRouter analysis are separately gated by `REDDIT_READ_ONLY_ENABLED` and `LLM_ENABLED`.
 
@@ -61,12 +61,22 @@ Only after separate written approval:
 - [x] Store only minimal public metadata needed for internal review.
 - [x] Keep `OUTREACH_WRITE_ENABLED=false`.
 
+## Phase 7: Source Intake And Report Outputs (Completed)
+
+- [x] Add report outputs for CSV, JSON, Markdown evidence packets, and Markdown summary reports.
+- [x] Add multi-platform source intake for manual URLs, RSS/feed items, open-web results, reputation scanner results, deep-web public pages, and explicitly allowlisted onion evidence.
+- [x] Normalize source records into the existing review queue schema so classification, human review, audit, and exports work consistently.
+- [x] Reject private-data patterns, payment/card-like numbers, transaction or outreach language, unsupported URL protocols, and non-allowlisted onion hosts.
+- [x] Keep all source connectors read-only with no login, form submission, marketplace action, outreach workflow, browser automation, or account automation.
+
 ## Acceptance Checks
 
 - Tests, lint, normal build, and GitHub Pages static export build pass.
 - Internal server `/api/health` returns `ok: true`.
 - Review state survives browser refresh in server mode.
 - Manual import accepts public examples and rejects blocking private data.
+- Multi-platform source intake accepts valid public-source evidence and rejects private data, transaction/outreach language, unsupported URL protocols, and non-allowlisted onion hosts.
+- Report outputs generate CSV, JSON, evidence packet, and summary report files without network outreach.
 - High medical risk cannot be approved.
 - Risky draft wording fails compliance.
 - Approved drafts do not trigger any network outreach.

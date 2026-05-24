@@ -1,22 +1,24 @@
 # Project Status
 
-Last updated: 2026-05-21
+Last updated: 2026-05-24
 
 ## Current Snapshot
 
 - Product: internal Operation Empathy review dashboard for imported public examples and read-only social listening.
 - Primary modes: browser-local state for static usage, file-backed local dev, and server persistence for VPS mode.
 - Runtime: Next.js app with a custom Node review server in `server/review-server.mjs`.
-- Data sources: manual CSV/JSON import, Reddit `Listing` JSON import, and direct read-only Reddit `.json` endpoints when `REDDIT_READ_ONLY_ENABLED=true`.
+- Data sources: manual CSV/JSON import, Reddit `Listing` JSON import, direct read-only Reddit `.json` endpoints when `REDDIT_READ_ONLY_ENABLED=true`, and multi-platform public-source intake for analyst-provided evidence records.
 - Seed data: no seeded mock posts are shown by default; the dashboard starts empty until data is imported or fetched.
 - AI: optional OpenRouter-powered Analyze flow behind `LLM_ENABLED=true` and `OPENROUTER_API_KEY`.
 - Deployment targets: GitHub Pages static export for browser-local usage, or an internal VPS behind access controls.
 
 ## Current Code State
 
-- Dashboard UI includes summary cards, review queue filters, detail panel, expanded original-post reader, draft editor, compliance checks, resource status, audit log, and analytics.
+- Dashboard UI includes summary cards, review queue filters, detail panel, expanded original-post reader, draft editor, compliance checks, resource status, audit log, analytics, source intake, and report outputs.
 - Manual CSV/JSON import supports public examples and Reddit `Listing` JSON.
 - Read-only Reddit search maps `.json` Listing responses into the same review queue schema.
+- Multi-platform source intake normalizes public-source records from manual URLs, RSS/feed items, open-web results, reputation scanner results, deep-web public pages, and explicitly allowlisted onion evidence into the same review queue schema.
+- Report outputs support CSV, JSON, Markdown evidence packets, and Markdown summary reports for all or filtered/visible posts.
 - The Analyze button calls `/api/ai/analyze`, classifies the selected post, drafts a safe reply, refreshes compliance, and still requires human review.
 - Review actions are human-triggered only: approve, edit draft, reject, Do Not Engage, Needs Compliance Review, and Needs Marketing Review.
 - Safety checks block risky approvals and flag medical, promotion, spam, and disclosure issues.
@@ -29,12 +31,13 @@ Last updated: 2026-05-21
 - `LLM_ENABLED=true` enables analysis/drafting only when a valid OpenRouter key is configured.
 - No posting, DM, payment, shipping, CRM, or production customer-data integration is active.
 - No account farming, browser automation, or outreach write workflow is implemented.
+- Multi-platform source intake is read-only evidence intake only. It rejects private-data patterns, payment/card-like numbers, transaction/outreach language, unsupported URL protocols, and non-allowlisted onion hosts.
 
 ## Verification
 
-- `npm.cmd run lint` passes.
-- `npm.cmd test` passes with 22 tests.
-- `npm.cmd run build` passes.
+- `npm run lint` passes.
+- `npm test` passes with 33 tests.
+- `npm run build` passes.
 - Local `/api/health` has been verified with file persistence, read-only Reddit enabled, and OpenRouter enabled.
 - Local `/api/review-state` has been reset to an empty queue.
 

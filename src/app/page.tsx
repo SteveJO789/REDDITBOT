@@ -7,7 +7,21 @@ import {
   getOverallRisk
 } from "@/lib/aiMock";
 import { getAnalytics } from "@/lib/analytics";
+import { convertPostsToCsv, createCsvFilename } from "@/lib/csvExport";
 import { validateManualImportText } from "@/lib/importValidation";
+import {
+  convertPostsToEvidencePacket,
+  convertPostsToJsonReport,
+  convertPostsToSummaryReport,
+  createReportFilename,
+  type ReportKind
+} from "@/lib/reportExports";
+import {
+  SOURCE_CONNECTOR_LABELS,
+  mapSourceRecordsToMockPosts,
+  parseSourceConnectorImportText,
+  type SourceConnectorKind
+} from "@/lib/sourceConnectors";
 import {
   DASHBOARD_STORAGE_KEY,
   createSavedDashboardState,
@@ -173,6 +187,9 @@ export default function Home() {
   const [llmEnabled, setLlmEnabled] = useState(false);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
   const [aiMessage, setAiMessage] = useState("");
+  const [sourceConnectorKind, setSourceConnectorKind] = useState<SourceConnectorKind>("manual_url");
+  const [sourceConnectorText, setSourceConnectorText] = useState("");
+  const [sourceConnectorMessage, setSourceConnectorMessage] = useState("");
 
   useEffect(() => {
     let isCancelled = false;
@@ -352,6 +369,72 @@ export default function Home() {
     setImportMessage(`Imported ${importedReviewPosts.length} public examples.`);
   }
 
+  function addDefaultConnectorToSourceInput(text: string) {
+    const parsed = JSON.parse(text) as unknown;
+    const withConnector = (row: unknown) => {
+      if (!row || typeof row !== "object" || Array.isArray(row)) {
+        return row;
+      }
+      const record = row as Record<string, unknown>;
+      return { ...record, connector: record.connector ?? sourceConnectorKind };
+    };
+
+    if (Array.isArray(parsed)) {
+      return JSON.stringify(parsed.map(withConnector));
+    }
+
+    if (parsed && typeof parsed === "object") {
+      const record = parsed as Record<string, unknown>;
+      if (Array.isArray(record.sources)) {
+        return JSON.stringify({ ...record, sources: record.sources.map(withConnector) });
+      }
+      if (Array.isArray(record.records)) {
+        return JSON.stringify({ ...record, records: record.records.map(withConnector) });
+      }
+      if (Array.isArray(record.items)) {
+        return JSON.stringify({ ...record, items: record.items.map(withConnector) });
+      }
+      return JSON.stringify(withConnector(record));
+    }
+
+    return text;
+  }
+
+  function importSourceConnectorText() {
+    const text = sourceConnectorText.trim();
+    if (!text) {
+      setSourceConnectorMessage("Paste a JSON source record first.");
+      return;
+    }
+
+    let sourcePayload = text;
+    try {
+      sourcePayload = addDefaultConnectorToSourceInput(text);
+    } catch (error) {
+      setSourceConnectorMessage(`Could not parse source connector JSON: ${(error as Error).message}`);
+      return;
+    }
+
+    const result = parseSourceConnectorImportText(sourcePayload, {
+      existingIds: posts.map((post) => post.id)
+    });
+
+    if (!result.ok) {
+      setSourceConnectorMessage(result.errors.join(" "));
+      return;
+    }
+
+    const batchId = `source-connectors-${Date.now()}`;
+    const sourcePosts = mapSourceRecordsToMockPosts(result.records, batchId);
+    const importedReviewPosts = sourcePosts.map((post) => createReviewPostFromPost(post, batchId));
+    setPosts((currentPosts) => [...currentPosts, ...importedReviewPosts]);
+    setSelectedId(importedReviewPosts[0]?.id ?? selectedId);
+    setSourceConnectorText("");
+    setSourceConnectorMessage(
+      `Imported ${importedReviewPosts.length} read-only source item${importedReviewPosts.length === 1 ? "" : "s"}. ${result.warnings.join(" ")}`
+    );
+  }
+
   async function searchReddit(query: string) {
     if (!query || !redditReadOnlyEnabled) return;
 
@@ -393,6 +476,47 @@ export default function Home() {
     } finally {
       setIsRedditSearching(false);
     }
+  }
+
+  function downloadTextFile(content: string, filename: string, mimeType: string) {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    const blob = new Blob([content], { type: `${mimeType};charset=utf-8` });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadCsvExport(exportPosts: ReviewPost[], scope: "all" | "visible") {
+    downloadTextFile(convertPostsToCsv(exportPosts), createCsvFilename(`redditbot-${scope}`), "text/csv");
+    setImportMessage(`Exported ${exportPosts.length} ${scope === "visible" ? "visible" : "total"} posts to CSV.`);
+  }
+
+  function downloadReportOutput(kind: ReportKind, exportPosts: ReviewPost[], scope: "all" | "visible") {
+    const generatedAt = new Date();
+    const contentByKind: Record<ReportKind, string> = {
+      json: convertPostsToJsonReport(exportPosts, generatedAt),
+      evidence: convertPostsToEvidencePacket(exportPosts, generatedAt),
+      summary: convertPostsToSummaryReport(exportPosts, generatedAt)
+    };
+    const mimeByKind: Record<ReportKind, string> = {
+      json: "application/json",
+      evidence: "text/markdown",
+      summary: "text/markdown"
+    };
+
+    const filename = createReportFilename(`${scope}-${kind}`, generatedAt);
+    downloadTextFile(contentByKind[kind], filename, mimeByKind[kind]);
+    setImportMessage(
+      `Exported ${exportPosts.length} ${scope === "visible" ? "visible" : "total"} posts as ${kind} report.`
+    );
   }
 
   async function analyzeWithAI() {
@@ -527,6 +651,106 @@ export default function Home() {
             </div>
             {importMessage ? <p className="mt-2 text-xs font-medium text-steel" aria-live="polite">{importMessage}</p> : null}
             {saveError ? <p className="mt-2 text-xs font-bold text-danger" aria-live="polite">{saveError}</p> : null}
+          </section>
+
+          <section className="rounded-lg border border-cyan-200 bg-cyan-50 p-3 shadow-panel">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-sm font-bold text-cyan-950">Report Outputs</h2>
+                <p className="text-xs text-cyan-800">
+                  Export CSV, JSON, evidence packets, and summary reports for read-only review.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <button
+                  className="inline-flex min-h-11 items-center justify-center rounded-md bg-cyan-800 px-3 py-2 text-sm font-bold text-white hover:bg-cyan-900 disabled:opacity-50"
+                  onClick={() => downloadCsvExport(posts, "all")}
+                  disabled={posts.length === 0}
+                >
+                  CSV all
+                </button>
+                <button
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-cyan-700 bg-white px-3 py-2 text-sm font-bold text-cyan-900 hover:bg-cyan-100 disabled:opacity-50"
+                  onClick={() => downloadCsvExport(filteredPosts, "visible")}
+                  disabled={filteredPosts.length === 0}
+                >
+                  CSV visible
+                </button>
+                <button
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-cyan-700 bg-white px-3 py-2 text-sm font-bold text-cyan-900 hover:bg-cyan-100 disabled:opacity-50"
+                  onClick={() => downloadReportOutput("json", posts, "all")}
+                  disabled={posts.length === 0}
+                >
+                  JSON all
+                </button>
+                <button
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-cyan-700 bg-white px-3 py-2 text-sm font-bold text-cyan-900 hover:bg-cyan-100 disabled:opacity-50"
+                  onClick={() => downloadReportOutput("json", filteredPosts, "visible")}
+                  disabled={filteredPosts.length === 0}
+                >
+                  JSON visible
+                </button>
+                <button
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-cyan-700 bg-white px-3 py-2 text-sm font-bold text-cyan-900 hover:bg-cyan-100 disabled:opacity-50"
+                  onClick={() => downloadReportOutput("evidence", filteredPosts, "visible")}
+                  disabled={filteredPosts.length === 0}
+                >
+                  Evidence packet
+                </button>
+                <button
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-cyan-700 bg-white px-3 py-2 text-sm font-bold text-cyan-900 hover:bg-cyan-100 disabled:opacity-50"
+                  onClick={() => downloadReportOutput("summary", posts, "all")}
+                  disabled={posts.length === 0}
+                >
+                  Summary report
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-lg border border-violet-200 bg-violet-50 p-3 shadow-panel lg:col-span-2">
+            <div className="grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_auto] lg:items-end">
+              <div>
+                <label className="text-[11px] font-bold uppercase text-violet-900">
+                  Source tool
+                  <select
+                    className="mt-1 h-11 w-full rounded-md border border-violet-200 bg-white px-3 text-sm normal-case text-ink outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400"
+                    value={sourceConnectorKind}
+                    onChange={(event) => setSourceConnectorKind(event.target.value as SourceConnectorKind)}
+                  >
+                    {(Object.keys(SOURCE_CONNECTOR_LABELS) as SourceConnectorKind[]).map((kind) => (
+                      <option key={kind} value={kind}>
+                        {SOURCE_CONNECTOR_LABELS[kind]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-violet-950">Multi-Platform Source Intake</h2>
+                <p className="mb-2 text-xs text-violet-800">
+                  Paste public-source JSON from manual URLs, RSS, open web, reputation scanners, deep-web public pages, or allowlisted onion evidence. Read-only only: no login, forms, DMs, outreach, or transactions.
+                </p>
+                <textarea
+                  className="h-24 w-full rounded-md border border-violet-200 bg-white px-3 py-2 text-xs text-ink outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400"
+                  placeholder='{"title":"Public source item","body":"Evidence text only.","url":"https://example.com/item","keyword":"risk signal"}'
+                  value={sourceConnectorText}
+                  onChange={(event) => setSourceConnectorText(event.target.value)}
+                />
+              </div>
+              <button
+                className="inline-flex min-h-11 items-center justify-center rounded-md bg-violet-800 px-4 py-2 text-sm font-bold text-white hover:bg-violet-900 disabled:opacity-50"
+                onClick={importSourceConnectorText}
+                disabled={!sourceConnectorText.trim()}
+              >
+                Import source
+              </button>
+            </div>
+            {sourceConnectorMessage ? (
+              <p className="mt-2 text-xs font-medium text-violet-900" aria-live="polite">
+                {sourceConnectorMessage}
+              </p>
+            ) : null}
           </section>
 
           {redditReadOnlyEnabled && (

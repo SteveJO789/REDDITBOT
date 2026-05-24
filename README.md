@@ -5,8 +5,10 @@ Operation Empathy Dashboard is an internal read-only social-listening and human-
 ## Current Status
 
 - Internal dashboard prototype, not a production outreach system.
-- The dashboard starts empty; data comes from manual imports or approved read-only Reddit `.json` endpoints.
+- The dashboard starts empty; data comes from manual imports, approved read-only Reddit `.json` endpoints, or read-only public-source evidence intake.
 - Manual CSV/JSON imports and Reddit `Listing` JSON imports are supported.
+- Multi-platform source intake is supported for analyst-provided public-source JSON records.
+- CSV, JSON, evidence-packet, and summary-report exports are supported.
 - Browser-local state works for static usage.
 - VPS/server mode persists review state through the internal API and PostgreSQL.
 - Optional OpenRouter analysis and draft generation exist behind `LLM_ENABLED=true` and `OPENROUTER_API_KEY`.
@@ -18,6 +20,7 @@ Operation Empathy Dashboard is an internal read-only social-listening and human-
 - Import-only review queue with no seeded mock posts by default.
 - Manual CSV/JSON import, including raw Reddit `Listing` JSON.
 - Read-only Reddit `.json` search/import when `REDDIT_READ_ONLY_ENABLED=true`.
+- Multi-platform public-source intake for manual URLs, RSS/feed items, open-web results, reputation scanner results, deep-web public pages, and explicitly allowlisted onion evidence.
 - Local deterministic classification for relevance, helpfulness opportunity, medical risk, promotion risk, and reply suitability.
 - Optional OpenRouter Analyze button that classifies a selected post, drafts a reply, and refreshes compliance.
 - Safe draft generation that avoids product links, affiliate links, discount codes, auto-DMs, and medical treatment claims.
@@ -25,6 +28,7 @@ Operation Empathy Dashboard is an internal read-only social-listening and human-
 - Human review actions: approve, edit draft, reject, and mark Do Not Engage.
 - Human review escalation actions: Needs Compliance Review and Needs Marketing Review.
 - Manual CSV/JSON import validation for public examples.
+- Report outputs for CSV, JSON, Markdown evidence packets, and Markdown summary reports.
 - Server-side review-state persistence for VPS/internal server mode.
 - Simple analytics for subreddit mix, risk levels, buying signals, review status, pain points, and resource request opportunities.
 
@@ -36,6 +40,7 @@ Operation Empathy Dashboard is an internal read-only social-listening and human-
 - GitHub Pages remains browser-local only; VPS/server mode persists review state through the internal API.
 - No auto-posting.
 - No auto-DM.
+- No source-connector login, form submission, marketplace actions, transaction support, or contact workflow.
 - No affiliate links or product recommendations in first public replies.
 - No medical treatment claims or claims that any product cures burnout, numbness, brain fog, wrist pain, or carpal tunnel.
 - No AI calls unless `LLM_ENABLED=true` and `OPENROUTER_API_KEY` are set in an internal environment.
@@ -151,6 +156,42 @@ LLM_ENABLED=true
 OPENROUTER_API_KEY=your_openrouter_key
 ```
 
+## Multi-Platform Source Intake
+
+The dashboard includes a **Multi-Platform Source Intake** panel for importing analyst-provided public-source evidence records. It is not a live crawler or outreach tool. The supported source types are:
+
+- Manual URL Evidence
+- RSS / Atom Feed Item
+- Open Web Result
+- Reputation Scanner Result
+- Deep Web Public Page
+- Onion Allowlist Page
+
+Example JSON item:
+
+```json
+{
+  "title": "Public source item",
+  "body": "Evidence text only.",
+  "url": "https://example.com/item",
+  "keyword": "risk signal",
+  "sourceName": "Example Source"
+}
+```
+
+The source intake validates records before importing them into the review queue. It rejects private-data patterns, payment/card-like numbers, transaction or outreach language, unsupported URL protocols, and onion URLs that are not explicitly allowlisted. Onion evidence remains read-only and must not involve login, forms, contact workflows, or transactions.
+
+## Report Outputs
+
+The dashboard includes a **Report Outputs** panel for exporting review data:
+
+- CSV all / visible
+- JSON all / visible
+- Markdown evidence packet
+- Markdown summary report
+
+Exports are for internal review and evidence preservation only. They do not trigger any posting, messaging, or production system writes.
+
 ## Deploy To GitHub Pages
 
 This app is configured for static export, so it can run on GitHub Pages without a server.
@@ -174,6 +215,7 @@ The workflow runs tests, lint, and a static build, then deploys the generated `o
 ## Safety Principles
 
 - Import or fetch only public examples approved for internal review.
+- Treat multi-platform source intake as read-only evidence intake only.
 - All generated replies require human review before use.
 - First public replies should be helpful, educational, and non-promotional.
 - Product or resource sharing should happen only after the user voluntarily asks for it.
@@ -190,7 +232,8 @@ The working direction is an internal decision-support dashboard, not an automate
 4. Phase 4: Keep the human review workflow explicit with approve, edit, reject, Do Not Engage, and compliance review actions.
 5. Phase 5: Expand learning-focused analytics for pain points, risk levels, approval quality, objections, and resource-request opportunities.
 6. Phase 6: Use read-only public data research only with approved scopes and no outreach write access.
-7. Phase 7: Consider company website or CRM integration only after a separate production safety review.
+7. Phase 7: Add source-intake and report-output tooling for internal evidence review.
+8. Phase 8: Consider company website or CRM integration only after a separate production safety review.
 
 Out of scope unless explicitly approved later:
 
@@ -204,8 +247,8 @@ Out of scope unless explicitly approved later:
 
 ```text
 src/app/          Next.js app routes and dashboard UI
-src/lib/          Import parsing, classification, draft, compliance, and analytics logic
-tests/            Unit tests for import, review-state, and safety logic
+src/lib/          Import parsing, source connectors, reports, classification, draft, compliance, and analytics logic
+tests/            Unit tests for import, source connectors, reports, review-state, and safety logic
 deploy/           PostgreSQL schema and legacy reverse proxy config
 docs/             Deployment and operational documentation
 ```
