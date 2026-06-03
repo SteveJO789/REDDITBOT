@@ -3,8 +3,14 @@ import path from "node:path";
 import process from "node:process";
 
 const stateKey = process.env.DASHBOARD_STATE_KEY ?? "operation-empathy-dashboard-v1";
-const dataDir = process.env.PERSISTENCE_DATA_DIR ?? path.join(process.cwd(), ".data");
-const filePath = path.join(dataDir, "review-state.json");
+
+function getDataDir() {
+  return process.env.PERSISTENCE_DATA_DIR ?? path.join(process.cwd(), ".data");
+}
+
+function getFilePath() {
+  return path.join(getDataDir(), "review-state.json");
+}
 
 async function createPostgresStore() {
   if (!process.env.DATABASE_URL) {
@@ -334,7 +340,7 @@ function createFileStore() {
     kind: "file",
     async load() {
       try {
-        return JSON.parse(await readFile(filePath, "utf8"));
+        return JSON.parse(await readFile(getFilePath(), "utf8"));
       } catch (error) {
         if (error.code === "ENOENT") {
           return null;
@@ -343,8 +349,8 @@ function createFileStore() {
       }
     },
     async save(state) {
-      await mkdir(dataDir, { recursive: true });
-      await writeFile(filePath, JSON.stringify(state, null, 2), "utf8");
+      await mkdir(getDataDir(), { recursive: true });
+      await writeFile(getFilePath(), JSON.stringify(state, null, 2), "utf8");
     }
   };
 }

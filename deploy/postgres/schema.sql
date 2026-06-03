@@ -106,3 +106,60 @@ CREATE TABLE IF NOT EXISTS dashboard_state_snapshots (
 
 CREATE INDEX IF NOT EXISTS idx_posts_import_batch_id ON posts(import_batch_id);
 CREATE INDEX IF NOT EXISTS idx_audit_events_post_id ON audit_events(post_id);
+
+CREATE TABLE IF NOT EXISTS agent_statuses (
+  agent_id TEXT PRIMARY KEY,
+  agent_name TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (
+    status IN ('idle', 'working', 'waiting', 'review', 'blocked', 'done', 'failed', 'offline')
+  ),
+  current_task TEXT NOT NULL DEFAULT '',
+  last_heartbeat_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS daily_budgets (
+  budget_date DATE NOT NULL,
+  budget_key TEXT NOT NULL,
+  limit_usd NUMERIC(12, 4) NOT NULL DEFAULT 0,
+  spent_usd NUMERIC(12, 4) NOT NULL DEFAULT 0,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  status TEXT NOT NULL CHECK (status IN ('active', 'paused', 'exceeded', 'closed')),
+  notes TEXT NOT NULL DEFAULT '',
+  updated_by TEXT NOT NULL DEFAULT 'system',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (budget_date, budget_key)
+);
+
+CREATE TABLE IF NOT EXISTS agent_audit_events (
+  id BIGSERIAL PRIMARY KEY,
+  actor TEXT NOT NULL,
+  action TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL DEFAULT '',
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS api_fetch_history (
+  id BIGSERIAL PRIMARY KEY,
+  connector TEXT NOT NULL,
+  endpoint TEXT NOT NULL,
+  request_hash TEXT NOT NULL DEFAULT '',
+  query JSONB NOT NULL DEFAULT '{}'::jsonb,
+  status TEXT NOT NULL CHECK (status IN ('success', 'failed', 'blocked', 'skipped')),
+  status_code INTEGER,
+  duration_ms INTEGER,
+  result_count INTEGER,
+  cost_usd NUMERIC(12, 4) NOT NULL DEFAULT 0,
+  error TEXT NOT NULL DEFAULT '',
+  fetched_by TEXT NOT NULL DEFAULT 'system',
+  fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_statuses_status ON agent_statuses(status);
+CREATE INDEX IF NOT EXISTS idx_daily_budgets_date ON daily_budgets(budget_date DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_audit_events_created ON agent_audit_events(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_audit_events_entity ON agent_audit_events(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_api_fetch_history_connector ON api_fetch_history(connector, fetched_at DESC);

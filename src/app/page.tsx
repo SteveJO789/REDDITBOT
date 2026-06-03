@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AgentCompanyDashboard } from "@/components/AgentCompanyDashboard";
 import {
   createInitialReviewPosts,
   createReviewPostFromPost,
@@ -8,6 +9,7 @@ import {
 } from "@/lib/aiMock";
 import { getAnalytics } from "@/lib/analytics";
 import { convertPostsToCsv, createCsvFilename } from "@/lib/csvExport";
+import { formatUtcDateTime } from "@/lib/dateFormat";
 import { validateManualImportText } from "@/lib/importValidation";
 import {
   convertPostsToEvidencePacket,
@@ -169,6 +171,7 @@ function loadLocalSavedPosts() {
 }
 
 export default function Home() {
+  const [dashboardMode, setDashboardMode] = useState<"agent_company" | "reddit_review">("agent_company");
   const [posts, setPosts] = useState<ReviewPost[]>(() => createInitialReviewPosts());
   const [selectedId, setSelectedId] = useState(posts[0]?.id ?? "");
   const [statusFilter, setStatusFilter] = useState<"all" | ReviewStatus>("all");
@@ -589,33 +592,79 @@ export default function Home() {
   return (
     <main className="min-h-screen">
       <header className="border-b border-slate-900 bg-night text-white shadow-tight">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-4 md:flex-row md:items-center md:justify-between">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase text-teal-300">Internal review console</p>
-            <h1 className="mt-1 text-2xl font-bold text-white">Operation Empathy</h1>
+            <p className="text-xs font-bold uppercase text-teal-300">
+              {dashboardMode === "agent_company" ? "AI agent company console" : "Internal review console"}
+            </p>
+            <h1 className="mt-1 text-2xl font-bold text-white">
+              {dashboardMode === "agent_company" ? "AI Content Company OS" : "Operation Empathy"}
+            </h1>
           </div>
-          <div className="flex flex-wrap gap-2 text-[11px] font-bold uppercase">
-            <span className="rounded border border-teal-300/40 bg-teal-300/10 px-2.5 py-1 text-teal-100">
-              Import only
-            </span>
-            <span className="rounded border border-amber-300/40 bg-amber-300/10 px-2.5 py-1 text-amber-100">
-              Human approval required
-            </span>
-            <span className="rounded border border-rose-300/40 bg-rose-300/10 px-2.5 py-1 text-rose-100">
-              No posting / DM
-            </span>
-            <span className="rounded border border-cyan-300/40 bg-cyan-300/10 px-2.5 py-1 text-cyan-100">
-              {persistenceMode === "server" ? "Server persistence" : "Browser local state"}
-            </span>
-            {saveError ? (
-              <span className="rounded border border-red-300/40 bg-red-300/10 px-2.5 py-1 text-red-100">
-                Save needs retry
-              </span>
-            ) : null}
+          <div className="flex flex-col gap-3 lg:items-end">
+            <div className="inline-flex rounded-md border border-white/20 bg-white/5 p-1">
+              <button
+                className={`min-h-9 rounded px-3 text-xs font-bold uppercase ${
+                  dashboardMode === "agent_company" ? "bg-white text-night" : "text-slate-200 hover:bg-white/10"
+                }`}
+                onClick={() => setDashboardMode("agent_company")}
+              >
+                Agent Company
+              </button>
+              <button
+                className={`min-h-9 rounded px-3 text-xs font-bold uppercase ${
+                  dashboardMode === "reddit_review" ? "bg-white text-night" : "text-slate-200 hover:bg-white/10"
+                }`}
+                onClick={() => setDashboardMode("reddit_review")}
+              >
+                Reddit Review
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 text-[11px] font-bold uppercase">
+              {dashboardMode === "agent_company" ? (
+                <>
+                  <span className="rounded border border-teal-300/40 bg-teal-300/10 px-2.5 py-1 text-teal-100">
+                    1 video / day
+                  </span>
+                  <span className="rounded border border-amber-300/40 bg-amber-300/10 px-2.5 py-1 text-amber-100">
+                    Human approval required
+                  </span>
+                  <span className="rounded border border-cyan-300/40 bg-cyan-300/10 px-2.5 py-1 text-cyan-100">
+                    Pixel Agents monitor
+                  </span>
+                  <span className="rounded border border-rose-300/40 bg-rose-300/10 px-2.5 py-1 text-rose-100">
+                    No auto-posting by default
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="rounded border border-teal-300/40 bg-teal-300/10 px-2.5 py-1 text-teal-100">
+                    Import only
+                  </span>
+                  <span className="rounded border border-amber-300/40 bg-amber-300/10 px-2.5 py-1 text-amber-100">
+                    Human approval required
+                  </span>
+                  <span className="rounded border border-rose-300/40 bg-rose-300/10 px-2.5 py-1 text-rose-100">
+                    No posting / DM
+                  </span>
+                  <span className="rounded border border-cyan-300/40 bg-cyan-300/10 px-2.5 py-1 text-cyan-100">
+                    {persistenceMode === "server" ? "Server persistence" : "Browser local state"}
+                  </span>
+                  {saveError ? (
+                    <span className="rounded border border-red-300/40 bg-red-300/10 px-2.5 py-1 text-red-100">
+                      Save needs retry
+                    </span>
+                  ) : null}
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
+      {dashboardMode === "agent_company" ? (
+        <AgentCompanyDashboard />
+      ) : (
       <div className="mx-auto max-w-7xl px-5 py-6">
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           <MetricCard label="Posts" value={posts.length} />
@@ -1200,7 +1249,7 @@ export default function Home() {
                       <li key={event.id}>
                         <span className="font-semibold text-ink">{event.action}</span> by {event.actor}
                         {event.toStatus ? ` -> ${statusLabels[event.toStatus]}` : ""} at{" "}
-                        {new Date(event.createdAt).toLocaleString()}
+                        {formatUtcDateTime(event.createdAt)}
                       </li>
                     ))}
                   </ul>
@@ -1233,6 +1282,7 @@ export default function Home() {
           </div>
         </section>
       </div>
+      )}
     </main>
   );
 }

@@ -5,18 +5,33 @@ Operation Empathy Dashboard is an internal read-only social-listening and human-
 ## Current Status
 
 - Internal dashboard prototype, not a production outreach system.
+- AI Content Company OS mode is available for planning and tracking the agent-run content factory.
+- `docs/AI_AGENT_COMPANY_PLAN.md` contains the current operating plan for daily AI-made videos.
+- `docs/PSYCHEDELIC_HARM_REDUCTION_CHANNEL.md` defines the first configured client/channel and points to the 30-day CSV seed calendar.
+- Agent Company mode includes a browser-local daily content queue with the psychedelic harm-reduction seed calendar, per-item workflow status, and active-client CSV import.
+- Daily content queue items can generate local script drafts, run rule-based harm-reduction policy reviews, and require explicit human script approval before queue approval.
+- Human-approved and policy-passed queue items can generate draft-only platform packages, brief-only video asset briefs, and draft generated asset manifests; no automatic publishing path is active.
 - The dashboard starts empty; data comes from manual imports, approved read-only Reddit `.json` endpoints, or read-only public-source evidence intake.
 - Manual CSV/JSON imports and Reddit `Listing` JSON imports are supported.
 - Multi-platform source intake is supported for analyst-provided public-source JSON records.
 - CSV, JSON, evidence-packet, and summary-report exports are supported.
 - Browser-local state works for static usage.
 - VPS/server mode persists review state through the internal API and PostgreSQL.
+- Agent operations tracking persists audit events, agent status, daily budgets, and API fetch history.
 - Optional OpenRouter analysis and draft generation exist behind `LLM_ENABLED=true` and `OPENROUTER_API_KEY`.
 - Safety and compliance checks are built into the review flow.
 
 ## What This Prototype Demonstrates
 
 - A Next.js, TypeScript, and Tailwind CSS internal dashboard.
+- A browser-local AI agent company tracker with roadmap statuses, daily production pipeline, platform lanes, agent roster, Codex task commands, and a progress log.
+- Configured Agent Company client/channel profiles, including the psychedelic harm-reduction channel seeded from the 30-day calendar.
+- Typed content-calendar parsing and queue tracking for production calendar rows.
+- Local script draft generation and policy review workflow for queued content items.
+- Draft-only platform package generation for approved content.
+- Brief-only asset brief generation for approved content, including deliverables, visual prompts, voiceover, captions, license notes, and prohibited visuals.
+- Draft generated asset manifests for approved asset briefs, including visual prompt assets, text cards, b-roll needs, voiceover script, caption file, license checklist, and render QA checks.
+- Database-backed agent operations tracking for audit events, agent status, daily budgets, and API fetch history, with file fallback in local dev.
 - Import-only review queue with no seeded mock posts by default.
 - Manual CSV/JSON import, including raw Reddit `Listing` JSON.
 - Read-only Reddit `.json` search/import when `REDDIT_READ_ONLY_ENABLED=true`.
@@ -64,6 +79,34 @@ Then open:
 ```text
 http://localhost:3000
 ```
+
+To run the dashboard with a local Pixel Agents overlay, clone and build Pixel Agents beside this project, then start both processes:
+
+```bash
+git clone https://github.com/pixel-agents-hq/pixel-agents ../pixel-agents
+cd ../pixel-agents
+npm install
+npm run build
+cd ../REDDITBOT
+npm run dev:with-agents
+```
+
+Pixel Agents starts at:
+
+```text
+http://localhost:3100
+```
+
+The runner uses the current Redditbot project as Pixel Agents' working directory so local Claude Code sessions for this repo can appear in the Pixel Agents UI. This is development visualization only; it does not add posting, DM, account automation, or any outreach-write capability to the dashboard. If Pixel Agents is cloned elsewhere, set `PIXEL_AGENTS_DIR=/absolute/path/to/pixel-agents`. You can also set `PIXEL_AGENTS_HOST` or `PIXEL_AGENTS_PORT`, or pass Pixel Agents CLI flags after `--`.
+
+To assign a local Codex task and show it as an agent in Pixel Agents:
+
+```bash
+npm run dev:agents
+npm run codex:agent -- "inspect the dashboard and summarize the safest next implementation task"
+```
+
+`codex:agent` runs `codex exec` in this repository and reports start/stop status to Pixel Agents. It defaults to `CODEX_AGENT_SANDBOX=workspace-write`; set `CODEX_AGENT_SANDBOX=read-only` for analysis-only tasks. Each run also updates `/api/agent-ops/agent-status`, writes start/finish audit events, and saves output files under `.data/agent-runs/`.
 
 To test with Docker/PostgreSQL instead of file-backed local state:
 
@@ -139,8 +182,14 @@ In VPS mode, `npm run start` runs `server/review-server.mjs`. The server exposes
 - `GET /api/health` for a basic runtime and persistence check.
 - `GET /api/review-state` to load the saved dashboard state.
 - `PUT /api/review-state` to save review statuses, edited drafts, imported examples, resource status, and audit events.
+- `GET /api/agent-ops` to load agent status, daily budgets, audit events, and API fetch history.
+- `POST /api/agent-ops/agent-status` to upsert the current status of an agent.
+- `POST /api/agent-ops/daily-budget` to upsert a daily budget record.
+- `POST /api/agent-ops/audit-event` to append an audit event.
+- `POST /api/agent-ops/api-fetch` to append an API fetch history record.
 
 The persistence path uses PostgreSQL when `DATABASE_URL` is available. If PostgreSQL is unavailable, the server falls back to `.data/review-state.json` for local server tests. In Docker/VPS mode, `REQUIRE_POSTGRES=true` makes the app fail fast instead of silently falling back to file storage.
+Agent operations records use the same PostgreSQL connection when available and fall back to `.data/agent-ops.json` in local file mode.
 
 Keep outreach writes disabled:
 
